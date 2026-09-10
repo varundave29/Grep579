@@ -1,0 +1,17 @@
+Do not modify, wrap, or change how the vendor-provided ant-based PRPC service utility is invoked in any way. Only the custom pre-flight logic added on top of it — source environment validation, destination environment validation, and package validation performed before the export/import call — is in scope for changes.
+
+Locate the backend Python script that handles this deployment job, including these three custom validation steps.
+
+First, run and debug this script directly from the command line on the local machine, passing the same parameters the job normally receives (source environment, destination environment, product name, product version). Do not trigger it through the browser UI, and do not use any REST API call that requires polling for job status. Let all output print directly to the terminal so behavior can be observed in real time.
+
+Add clear logging or timing output around each of the three custom validation steps separately from the vendor utility call itself, so it is obvious how long each step takes and exactly where any delay or failure originates.
+
+Since this job worked before and has since started failing or slowing down, check version control history for recent changes to the custom validation code as a likely source of the regression.
+
+Diagnose whether the custom validation steps are the cause of the slowness or failure. Look for things like unnecessary network calls, missing timeouts, retries, or blocking logic in the validation code.
+
+If the custom validation logic is the cause, fix, simplify, or remove it as needed. If it is not the cause, say so clearly and identify what is. Either way, the vendor's ant-based export/import invocation must remain completely untouched.
+
+Keep iterating and testing purely at the command line, without the browser UI or the API trigger-and-poll flow, until the script runs end to end successfully and reliably from source export through destination import.
+
+Only after the script is confirmed working end to end from the command line should the same fix be validated through the actual application UI.
