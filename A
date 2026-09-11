@@ -1,0 +1,17 @@
+Update the master security report page with these changes.
+
+1. Center the report title and the line below it that shows branch, build ID, and timestamp. Both should be horizontally centered instead of left-aligned.
+
+2. Show the full image name field with no truncation and no tooltip or popover to reveal the rest. The complete string needs to be visible on the page as-is, since it's a key detail people need to see at a glance.
+
+3. Check the image version field. The value currently populating it does not look correct — it doesn't match the format of a build date, a build ID, or a pipeline ID, so it's likely pulling from the wrong source. Trace where this field's data comes from and correct it so it reflects the actual image version.
+
+4. Leave the image digest field and its copy button exactly as is — that part is working well.
+
+5. Rearrange the six report summary cards into two columns instead of one row, since the single-row layout leaves most of the page empty below the cards. Left column, top to bottom: Aqua, SonarQube, Nexus. Right column, top to bottom: Gitleaks, Checkov, SBOM.
+
+6. Keep the existing "Source: Azure DevOps REST APIs..." line as is. In addition, add a pipeline URL near the bottom of the report, after all six cards, linking to the pipeline run for this specific build. Make it a clickable hyperlink that opens in a new tab, so anyone reviewing the report can jump to the pipeline and independently verify the numbers.
+
+7. Redesign the Aqua card's internal layout as a small table instead of the current stacked list. Right now "High: 9" followed by "Fixable: 9" directly underneath reads as a duplicate to people unfamiliar with the report. Use the severity levels (Critical, High, Medium, Low) as row labels down the left side, with two column headers across the top: Total and Fixable. Fill in the corresponding count in each cell.
+
+8. Make sure every card, including the redesigned Aqua card, still links through to its full detailed report page after these layout changes — that click-through behavior needs to carry over unchanged.
