@@ -1,0 +1,30 @@
+Update the master report generator with the following changes.
+
+Header section:
+- Remove the title "Security Master Report". Replace it with a dynamic title built from the existing Repository field value followed by the words "Master Report" (for example, if the repository field is myapp-service, the title should read "myapp-service Master Report").
+- Directly below the title, in a smaller font than the title, show Branch, Build ID, and Build Timestamp on one line, separated by a divider such as a pipe or bullet.
+- Remove the "Generated On (UTC)" field completely.
+- Move Image Name, Image Version, and Image Digest into their own compact section below the header line. Truncate the digest (for example first 12-16 characters plus an ellipsis, with a copy-to-clipboard control or a tooltip showing the full value), and avoid the multi-line wrapping currently happening with the image name.
+
+Report summary cards:
+- Keep exactly six summary cards, in this order: Aqua, SonarQube, Nexus, Gitleaks, Checkov, SBOM.
+- Remove the VPT card and all VPT content entirely.
+- Each card must be a clickable hyperlink that opens the corresponding full detailed report page (reuse the existing detailed report files where they already exist, matched by tool). Do not embed the full detailed reports inline on the same page as the summary cards. The summary page is an index/landing page only.
+- Package the final output as a single zip containing the summary/index HTML file plus all linked detailed report HTML files, using relative links, so the whole thing can be shared over chat or email and opened offline with all links working.
+
+Visual design:
+- Use a professional, modern, tech-oriented color palette (for example slate, navy, or dark blue-gray backgrounds with teal or blue accents). Avoid bright, saturated, or poppy colors.
+- Add a hover effect on each summary card with a small bounce or lift animation (slight scale-up with a spring/bounce easing curve, plus a subtle shadow).
+- Keep typography clean with clear visual hierarchy between the title, the branch/build line, the image details, and the six summary cards.
+
+Per-report summary content:
+1. Aqua: for each of the four severity levels (Critical, High, Medium, Low), show the total number of findings. Additionally, for each severity level, show the number of findings that have a fixed version available. If a severity level has zero findings with a fix available, omit that fixable line for that severity entirely rather than showing zero.
+2. SonarQube: keep the current fields as they are: bugs, vulnerabilities, code smells, security hotspots, coverage.
+3. Nexus: this currently shows "No structured summary available". Investigate the raw Nexus report data being pulled in and fix the extraction so a real structured summary appears, consistent with the other tool summaries.
+4. Gitleaks: keep the current field as it is: number of leaks found.
+5. Checkov: keep the current fields as they are: failed count, passed count, skipped count.
+6. SBOM: this currently just shows "html_reports: 2", which is not meaningful. Investigate what the two underlying SBOM-related report files actually contain (likely a raw SBOM listing and a rendered version of the same data), and propose a short, management-friendly summary, for example total component count, number of components with an unknown or missing license, and count of components with known vulnerabilities if that data is available. Confirm which fields end up being used once the underlying data has been reviewed.
+
+Remove:
+- The VPT summary card and VPT report entirely.
+- The "Generated On (UTC)" field.
