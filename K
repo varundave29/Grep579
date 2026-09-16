@@ -1,0 +1,350 @@
+I want to add a new job to the existing application, tentatively named Version Job.
+
+The purpose of this job is to give developers a simple view of which application/image version is currently deployed in each Kubernetes environment and namespace, without requiring direct Kubernetes cluster access.
+
+Existing application context
+
+There is already an existing Status Job in the application.
+
+The Status Job already has the logic for:
+
+* Discovering Kubernetes namespaces/applications
+* Grouping the output by namespace
+* Discovering deployed workloads/pods
+* Displaying the results in the Console tab
+* Accessing the Kubernetes cluster
+* Handling the existing environment/application configuration
+
+Reuse this existing logic wherever practical. Do NOT create a parallel implementation for namespace discovery, environment grouping, Kubernetes authentication, or Console-tab rendering unless there is a clear technical reason.
+
+The new Version Job should follow the same overall UX and architecture as the Status Job.
+
+⸻
+
+Objective
+
+For each deployed Helm release/application, display:
+
+1. Helm Release Name
+2. Resolved Image Version
+3. Repository link
+
+The output should be grouped using the same namespace/environment structure already used by the Status Job.
+
+Example:
+
+Namespace: application-a
+Release Name              Image Version       Repo
+----------------------------------------------------------------
+mega-abc-api              2026.09.15.1234     ↗ Repo
+mega-xyz-api              2026.09.16.1241     ↗ Repo
+mega-payment-api          2026.09.16.1250     ↗ Repo
+
+The exact visual formatting should follow the existing Status Job Console-tab implementation.
+
+⸻
+
+Important: Image Digest vs Image Version
+
+The Kubernetes deployment currently contains images using an image digest rather than a human-readable version.
+
+For example:
+
+artifactory.example.com/application/mega-abc-api@sha256:xxxxxxxxxxxxxxxx
+
+Displaying this directly is NOT useful to developers.
+
+Do NOT simply display the complete Kubernetes image string.
+
+Instead:
+
+1. Obtain the deployed image/digest from the Kubernetes deployment.
+2. Extract the digest/build identifier required to identify the corresponding CI/CD build.
+3. Use the existing ADO MCP server integration to resolve that deployment/build information.
+4. Determine the actual image/build version associated with that digest.
+5. Display the human-readable image version/build identifier in the second column.
+
+The implementation must not assume that the SHA itself is the image version.
+
+⸻
+
+ADO MCP Integration
+
+The local development environment already has access to the ADO MCP server.
+
+The new Version Job should use the same MCP integration/pattern already used elsewhere in the application if one exists.
+
+Before implementing a new MCP client:
+
+1. Inspect the existing codebase.
+2. Find how the current application connects to and invokes the ADO MCP server.
+3. Reuse the existing client/service/helper abstractions.
+4. Reuse existing authentication/configuration.
+5. Do not introduce a second independent ADO MCP implementation.
+
+The purpose of the ADO lookup is to resolve the deployed image/build identifier into the corresponding:
+
+* Pipeline/build
+* Build ID/version where applicable
+* Repository
+* Branch
+* Source commit if available
+
+The exact MCP tool/API to use should be determined by inspecting the existing ADO MCP integration and its available tools.
+
+Do not invent MCP tool names or APIs.
+
+⸻
+
+Repository Resolution
+
+Each deployed image is associated with an ADO pipeline/build.
+
+The pipeline/build should allow the application to identify the source repository and the exact branch/commit from which that image was produced.
+
+The third column should therefore contain a hyperlink to the actual source-code repository and exact branch corresponding to the deployed image.
+
+For example:
+
+Release Name          Image Version       Repo
+------------------------------------------------------------
+mega-abc-api          2026.09.15.1234     ↗ Repo
+
+The Repo text should be rendered as a blue hyperlink.
+
+Use a northeast arrow/icon such as:
+
+↗ Repo
+
+to visually communicate that the link opens the source repository.
+
+The hyperlink should point to the repository/branch associated with the deployed build, not merely to the repository’s default branch.
+
+If the source commit is reliably available, prefer linking to the exact commit or branch in a way that clearly represents the deployed source. However, preserve the requested behavior of showing the exact branch associated with the pipeline build.
+
+⸻
+
+Helm Release Name
+
+The first column must show the Helm release name.
+
+Do not use the Kubernetes pod name as the primary identifier.
+
+Examples:
+
+mega-abc-api
+mega-payment-api
+mega-orders-api
+
+The application should determine the Helm release using the existing Kubernetes/Helm metadata available on the deployment.
+
+Inspect how Helm-managed resources are currently identified in the codebase.
+
+Do not assume that the deployment name and Helm release name are always identical.
+
+⸻
+
+Kubernetes Discovery
+
+For every relevant namespace:
+
+1. Discover the deployed workloads using the existing Kubernetes logic.
+2. Identify Helm-managed deployments/releases.
+3. Extract the container image references.
+4. Handle images using digest format.
+5. Resolve the digest/build to the corresponding ADO build.
+6. Resolve the build to:
+    * Image version/build version
+    * Repository
+    * Branch
+7. Render the result in the Version Job Console output.
+
+Consider deployments with multiple containers.
+
+The implementation should have a clear and deterministic rule for selecting the application image.
+
+If the existing application already has logic for identifying the primary/application container, reuse it.
+
+Do not blindly assume that the first container is always the application container.
+
+⸻
+
+Output Requirements
+
+The Console tab should contain a table similar to:
+
+Namespace: mega
+Release Name             Image Version          Repo
+----------------------------------------------------------------
+mega-abc-api             2026.09.15.1234        ↗ Repo
+mega-orders-api          2026.09.16.1241        ↗ Repo
+mega-payment-api         2026.09.16.1250        ↗ Repo
+
+Requirements:
+
+* First column: Helm release name
+* Second column: resolved image version/build version
+* Third column: clickable repository link
+* Repository link must be visually distinguishable as a hyperlink
+* Use the existing namespace/environment grouping
+* Follow the existing Status Job table styling/formatting
+* Do not display the full registry/image path
+* Do not display the raw SHA256 digest in the normal user-facing output
+
+⸻
+
+Error Handling
+
+The job must gracefully handle cases where the mapping cannot be resolved.
+
+Examples:
+
+Digest exists but ADO lookup fails
+
+Display something meaningful such as:
+
+Unknown
+
+rather than failing the entire job.
+
+Repository cannot be resolved
+
+Display:
+
+N/A
+
+and do not create a broken hyperlink.
+
+Multiple images exist
+
+Use the application’s existing primary-container/application-image identification logic where available.
+
+A deployment is not Helm-managed
+
+Follow the existing application’s conventions for excluding or identifying such workloads.
+
+ADO MCP is temporarily unavailable
+
+The Version Job should fail gracefully and provide an actionable error message without breaking the rest of the application.
+
+Do not expose credentials, tokens, or internal authentication details in the UI.
+
+⸻
+
+Architecture Requirements
+
+Before modifying code:
+
+1. Inspect the existing project structure.
+2. Inspect the Status Job implementation end-to-end.
+3. Identify reusable components for:
+    * Kubernetes access
+    * Namespace discovery
+    * Environment grouping
+    * Console rendering
+    * Table rendering
+    * Error handling
+    * ADO MCP integration
+4. Identify how jobs are registered and exposed in the application.
+5. Follow the same architecture and coding conventions.
+
+Avoid duplicating existing functionality.
+
+Prefer a small set of focused services/functions, for example:
+
+Kubernetes Discovery
+        ↓
+Helm Release / Deployment
+        ↓
+Image Digest
+        ↓
+ADO MCP Resolution
+        ↓
+Build Metadata
+        ↓
+Version + Repo + Branch
+        ↓
+Console Table
+
+Do not introduce Elasticsearch, Kafka, Redis, a new database, or another external service for this feature.
+
+This is a read-only visibility feature.
+
+⸻
+
+Caching / Efficiency
+
+Be careful about making an ADO MCP request for every individual pod/container if multiple deployments reference the same image digest.
+
+Where practical:
+
+* Deduplicate image digests/build IDs
+* Cache the resolution during a single job execution
+* Avoid unnecessary repeated MCP calls
+* Reuse existing caching mechanisms if the application already has one
+
+The job should remain reasonably fast even when many namespaces and deployments are present.
+
+⸻
+
+Security
+
+The job is read-only.
+
+It must not:
+
+* Modify Kubernetes resources
+* Modify Helm releases
+* Trigger ADO pipelines
+* Modify repositories
+* Expose ADO credentials/tokens
+* Store credentials in logs
+
+Use the existing authentication mechanisms.
+
+⸻
+
+Testing
+
+Add appropriate tests following the existing project testing conventions.
+
+At minimum cover:
+
+1. Helm release extraction
+2. Image digest extraction
+3. ADO build resolution
+4. Image version resolution
+5. Repository/branch resolution
+6. Repository hyperlink generation
+7. Missing ADO mapping
+8. ADO MCP failure
+9. Multiple containers
+10. Multiple namespaces
+11. Multiple releases
+12. Duplicate image digests
+
+Use mocks for Kubernetes and ADO MCP calls rather than requiring a live cluster or ADO server for unit tests.
+
+⸻
+
+Important Implementation Instruction
+
+Do not immediately start writing code.
+
+First inspect the repository and identify:
+
+* How Status Job works
+* How jobs are registered
+* How Kubernetes data is retrieved
+* How Helm releases are identified
+* How the Console tab is rendered
+* How ADO MCP is currently accessed
+* What existing models/types can be reused
+
+Then provide a short implementation plan and identify the exact files you intend to modify.
+
+After that, implement the feature using the existing architecture.
+
+Do not replace or redesign the existing Status Job.
+
+The Version Job should feel like a natural sibling of the existing Status and Metrics jobs.
