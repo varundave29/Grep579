@@ -1,0 +1,200 @@
+Build a lightweight Pega Log Viewer into the existing utility using the existing NAS-mounted log directory as the source.
+
+Core flow
+
+NAS:
+/Pega/logs/<environment>/<tier>/<pod>/...
+
+The utility runs on the same Red Hat VM and already has access to the NAS.
+
+Build a web-based live log viewer using the existing FastAPI backend and frontend architecture.
+
+Log selection
+
+Provide cascading selectors:
+
+* Environment
+* Tier: WEB / BATCH / SRS / etc.
+* Pod: individual pod or ALL PODS
+* Log type: alert / rules / batch / web / etc.
+
+When ALL PODS is selected, stream the same log type from all matching pods and merge the entries chronologically by timestamp.
+
+Every log entry must contain:
+
+timestamp | log level | pod name | message
+
+Example:
+
+08:41:23 | ERROR | batch-7f8d9 | PEGA-1234 database timeout
+
+Multi-line entries (stack traces)
+
+Many log lines, especially ERROR/FATAL, span multiple physical lines, e.g. Java stack traces.
+
+A new entry begins only when a line matches the expected timestamp/level prefix for that log type. Any line that does not match this prefix must be appended to the message of the previous entry rather than treated as a new entry on its own.
+
+The log parser must support a per-log-type line-format definition (timestamp pattern, level pattern, message start), since alert, rules, batch, and web logs may not share an identical line format.
+
+Search and rule-engine matching must run against the fully assembled multi-line message, not against individual raw physical lines.
+
+Pod identification
+
+Assign each pod a consistent UI color for the duration of the viewing session.
+
+If a pod restarts and gets a new pod name, treat the new pod as a new pod identity and assign it a new color.
+
+The pod label must always be visible so users can immediately identify which pod generated the message.
+
+Log-level colors
+
+Use separate visual indicators/colors for:
+
+* INFO
+* DEBUG
+* WARN
+* ERROR
+* FATAL
+
+Do not rely only on text color. Keep the UI readable in both light and dark themes.
+
+Live streaming
+
+Use WebSocket for live streaming.
+
+When a log is opened:
+
+1. Load the latest ~100 lines.
+2. Continue streaming new lines live.
+3. Support Pause / Resume.
+4. Support auto-scroll to bottom.
+5. Allow the user to scroll backwards into previously loaded content.
+
+Do not poll the backend continuously when WebSocket streaming is possible.
+
+Historical logs (V2 - deferred)
+
+For this version, the viewer works only with the current/live log file for the selected environment/tier/pod/log type. Do not implement navigation into older .tar.gz archives on the NAS yet, and do not implement any chronological merge across historical data.
+
+This is deferred to a later version and will include: seamless navigation from the current log into previous-day and older archives, incremental extraction of only the needed file from an archive without extracting the whole archive or loading it fully into memory, and a temporary per-session workspace on the VM for any extracted content with cleanup on session end/timeout. Keep the current design modular enough that this can be added later without reworking the live-tail path.
+
+Search and filtering
+
+Provide:
+
+* Free-text search
+* Regex search
+* Case-sensitive option
+* Log-level filters: ALL / DEBUG / INFO / WARN / ERROR / FATAL
+* Clear filters
+
+Support time scope:
+
+* Live
+* Today (current file only)
+* Historical (V2 - deferred, once archive support is added)
+* All available logs (V2 - deferred, once archive support is added)
+
+For historical searches (V2), search the relevant archive files without loading all historical logs into memory.
+
+Regex safety: Google RE2 is not available in this environment. Use the third-party "regex" Python package (a drop-in replacement for the standard "re" module) instead of stdlib re for any user-supplied pattern, and pass its timeout parameter on every call, e.g. regex.search(pattern, text, timeout=0.5), so a pathological or expensive expression is aborted rather than blocking the server. Surface a clear message to the user if a search times out rather than failing silently.
+
+Error/rule detection
+
+Implement a configurable rule engine for predefined patterns.
+
+Example configuration:
+
+rules:
+  - name: Pega Error
+    pattern: "PEGA-[0-9]+"
+    severity: ERROR
+  - name: Database Error
+    pattern: "(?i)ORA-[0-9]+"
+    severity: ERROR
+  - name: Timeout
+    pattern: "(?i)timeout|timed out"
+    severity: WARN
+
+Allow matched entries to be highlighted and optionally surfaced as detected events.
+
+Rule matching must run against the fully assembled log message, including any stitched multi-line content, not against raw individual physical lines.
+
+Keep the rule engine independent from the log streaming implementation so notification mechanisms can be added later.
+
+Backend architecture
+
+Keep components separated:
+
+* Log discovery
+* Log source/path resolution
+* Live file watcher
+* Archive reader (V2 - deferred)
+* Log parser (must support per-log-type line formats and multi-line/stack-trace stitching)
+* Search/filter engine
+* Rule engine
+* Session/resource manager
+* WebSocket streaming
+
+Do not introduce Elasticsearch, Kafka, OpenSearch, Logstash, or another external logging platform.
+
+The filesystem/NAS remains the source of truth.
+
+Multi-user support
+
+Design the viewer as a multi-user application.
+
+Each active viewer must have an isolated session:
+
+session -> selected environment/tier/pod/log -> WebSocket (temporary workspace applies once archive support in V2 is added)
+
+Do not create a global in-memory copy of log files.
+
+Multiple users viewing the same log should reuse the underlying file-reading mechanism where practical instead of creating unnecessary duplicate readers.
+
+Implement:
+
+* Connection/session cleanup
+* Bounded memory buffers
+* Maximum concurrent streams/configurable limits
+* Backpressure for slow clients
+* Automatic stale-session cleanup
+* No memory leak when users repeatedly open/close logs
+
+API design
+
+Keep APIs clean and RESTful for discovery/search and WebSocket for streaming.
+
+Example:
+
+GET /api/environments
+GET /api/environments/{env}/tiers
+GET /api/logs?environment=DEV&tier=BATCH
+POST /api/logs/search
+WS  /ws/logs/{session_id}
+
+Return log entries as structured JSON rather than raw strings:
+
+{
+  "timestamp": "2026-09-16T08:41:23.123",
+  "level": "ERROR",
+  "pod": "batch-7f8d9",
+  "log": "alert.log",
+  "message": "PEGA-1234 database timeout"
+}
+
+The frontend should handle rendering, pod colors, log-level indicators, filtering and highlighting.
+
+Important constraints
+
+Prioritize low memory usage, low latency and safe concurrent access.
+
+Never load an entire live log or archive into memory.
+
+Never modify files on the NAS.
+
+Use the existing local job/artifact workspace for temporary processing.
+
+Keep the implementation modular so additional log types, environments, notification channels and advanced analytics can be added later.
+
+First inspect the existing utility's backend/frontend structure and integrate this feature into the current architecture rather than creating a separate application.
