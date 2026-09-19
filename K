@@ -1,0 +1,203 @@
+You are working on an existing Pega Log Streamer utility. Do NOT redesign the application and do NOT add new functionality unless it is required to fix the existing behavior.
+
+The current critical issue is the log parsing / formatting / filtering / streaming pipeline.
+
+PRIMARY OBJECTIVE
+
+Fix the log parsing and display behavior so that the application correctly handles the fact that DIFFERENT LOG FILES HAVE DIFFERENT LOG FORMATS.
+
+The backend log files themselves are the source of truth.
+
+Do NOT assume that all logs follow one common format.
+
+Before changing any code, inspect the actual sample log files available in the repository/local test data and inspect the backend code responsible for:
+
+* log discovery
+* file selection
+* log reading
+* parsing
+* formatting
+* filtering
+* pagination/loading of previous logs
+* WebSocket/live streaming
+* log type/rule selection
+* error detection/grouping
+* any recently added Kibana-style functionality
+
+REQUIRED APPROACH
+
+First, trace the complete flow:
+
+LOG FILE
+→ file discovery
+→ selected log type/file
+→ backend reader
+→ log parser/formatter
+→ filtering
+→ API/WebSocket response
+→ frontend rendering
+
+Identify exactly where the current implementation assumes a common log format or where records from different log files can accidentally be combined.
+
+Do NOT fix the symptom only in the frontend.
+
+The backend must correctly understand the format of each log source before the frontend receives the structured log entry.
+
+LOG FORMAT DETECTION
+
+For each available log file:
+
+1. Inspect its actual contents.
+2. Identify its timestamp pattern.
+3. Identify its severity/log-level pattern.
+4. Identify its logger/class/component information if present.
+5. Identify pod/container/thread/request information if present.
+6. Identify multiline log boundaries.
+7. Identify stack traces and continuation lines.
+8. Identify fields that are unique to that log format.
+9. Determine how one complete log event begins and ends.
+10. Determine whether different files require different parsing rules.
+
+Do not invent a generic format based on assumptions.
+
+The parser should use the actual structure discovered from the files.
+
+If the project already contains a log formatter/parser abstraction, extend or correct that abstraction rather than creating a second competing parsing mechanism.
+
+IMPORTANT: FILE ISOLATION
+
+When the user selects a specific log type/file/rule, ONLY entries belonging to that selected source should be returned.
+
+For example:
+
+If the user selects:
+
+Rules
+
+the result must contain only the Rules log entries.
+
+Do NOT merge entries from other log files merely because they happen to match the same timestamp, severity, text pattern, or error pattern.
+
+Verify that file selection/filtering happens at the correct backend layer.
+
+STREAMING / PREVIOUS LOG LOADING
+
+Fix the existing loading behavior as well.
+
+When older log entries are loaded:
+
+* entries must remain correctly ordered
+* entries must not be duplicated
+* entries must not be mixed with another log source
+* loading older entries must not cause the selected log type to change
+* the frontend must not receive incorrectly parsed records
+* scrolling/loading must not repeatedly reload the same records
+
+For live streaming:
+
+* new entries must be parsed using the correct parser for that source
+* multiline events must remain intact
+* partial writes must not create malformed records
+* the stream must not suddenly switch to another log format
+
+RECENT KIBANA-STYLE FEATURES
+
+There are newer error detection/grouping/filtering/visualization features in the application.
+
+DO NOT remove them.
+
+DO NOT rewrite them unnecessarily.
+
+First determine which of those features are actually implemented and how they currently work.
+
+Preserve them while fixing the underlying parsing pipeline.
+
+However, do not assume they are working merely because the UI exists.
+
+Verify the backend behavior.
+
+If a feature cannot currently be validated because the underlying parsed log structure is incorrect, fix the parsing first and then verify whether the feature works with the corrected data.
+
+CRITICAL: DO NOT GUESS
+
+Do NOT:
+
+* create a universal parser based on one sample
+* hard-code assumptions about every log file having the same format
+* solve the problem purely with frontend filtering
+* add another layer of parsing without understanding the existing implementation
+* add Elasticsearch/Kibana/OpenSearch/etc.
+* introduce OpenTelemetry
+* redesign the architecture
+* remove existing functionality
+* rewrite unrelated files
+* add unnecessary dependencies
+
+Keep the existing lightweight architecture.
+
+VALIDATION
+
+Before declaring the task complete, test every available sample log file individually.
+
+For each file verify:
+
+1. File is discovered correctly.
+2. Correct parser/format is selected.
+3. Events are parsed correctly.
+4. Timestamp is extracted correctly.
+5. Severity is extracted correctly.
+6. Multiline entries remain intact.
+7. The correct source/log type is retained.
+8. Selecting one log type does not return entries from another.
+9. Older log loading works.
+10. Streaming new entries works.
+11. Error detection/grouping receives correctly structured events.
+12. Existing Kibana-style functionality still works.
+13. No previously working log type has regressed.
+
+If some sample files are empty placeholders, do not invent behavior for them. Clearly distinguish empty test files from files that contain real log data.
+
+IMPORTANT IMPLEMENTATION RULE
+
+Do not start modifying files immediately.
+
+First inspect the repository and identify:
+
+* the relevant backend files
+* the parser/formatter implementation
+* the log discovery implementation
+* the filtering implementation
+* the streaming implementation
+* the frontend code consuming the parsed records
+* the recent Kibana-style additions
+* the actual sample log formats
+
+Then form a concise diagnosis.
+
+After that, implement the smallest coherent fix.
+
+After implementation, run the available tests/build/lint checks and exercise the relevant log-processing paths.
+
+If you discover that the current architecture cannot correctly support multiple log formats, explain the specific limitation and make the smallest architectural correction necessary. Do not replace the whole architecture.
+
+FINAL RESPONSE
+
+At the end, report:
+
+1. Root cause of the parsing problem.
+2. Which log formats were detected.
+3. How format detection/parser selection now works.
+4. Which files were changed.
+5. How file isolation is enforced.
+6. How multiline logs are handled.
+7. How previous-log loading was verified.
+8. How streaming was verified.
+9. How the Kibana-style error/grouping functionality was verified.
+10. Tests/validation performed.
+11. Any remaining limitation, if one genuinely exists.
+
+Most importantly:
+
+DO NOT claim the issue is fixed merely because the code compiles.
+
+The fix is successful only if the actual sample log files are parsed correctly and selecting one log source does not produce records from another source.
