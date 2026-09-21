@@ -1,0 +1,28 @@
+Redesign the Dashboard UI in these two areas only:
+
+1. GLOBAL HEADER + SIDEBAR
+Match the visual structure of the provided reference/mockup:
+• Keep the top header completely independent from the sidebar.
+• The top header must span the full browser width.
+• The sidebar must start BELOW the header and must never overlap or visually attach to the header/logo area.
+• Give the header, sidebar, and main content subtle but distinct dark gradients so they feel like separate UI planes rather than being separated only by thin borders.
+• Keep the existing DevOps Console logo/name entirely within the top header. Sidebar collapse/expand must NOT affect its position or size.
+• Sidebar is expanded by default with module names.
+• When collapsed, it must fully collapse to an icon-only narrow rail. Do not leave the expanded sidebar width behind.
+• Preserve the existing tooltips for collapsed module icons.
+• The main content area should reclaim the full width when the sidebar collapses.
+
+2. TENANT UTILIZATION WIDGET
+Redesign only the visual presentation. Keep all existing data, calculations, API calls, refresh behavior, and analytics unchanged.
+
+• Make the widget more compact and infographic-oriented instead of looking like a collection of technical data fields.
+• Reduce the unused vertical space at the top of the tenant cards.
+• Remove the individual "Last updated" timestamp from each tenant/application card.
+• Do not reserve space for a load/error message when the tenant loaded successfully.
+• If a tenant fails to load during manual or automatic refresh, show a compact "Load Failed" indicator beside that tenant's name, similar to the existing Pod Count Summary pattern.
+• Use the freed space to present CPU, memory, utilization, limits, and top-namespace information more visually using compact progress indicators, clear hierarchy, and better grouping.
+• Keep the widget compact enough that it does not introduce page-level scrolling.
+• Preserve the existing dark theme and status-color semantics.
+
+Do not modify the Pod Count Summary or any other Dashboard widget in this change.
+Do not change any underlying logic or data.
