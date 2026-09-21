@@ -1,0 +1,47 @@
+The revised architecture and Phase 0–7 implementation plan are approved.
+
+Before implementation, incorporate these two final adjustments:
+
+1. ML fallback:
+Do not assume namespace-level ML is automatically appropriate for unrelated workloads. Use:
+workload-level ML
+→ comparable workload/behavior group where statistically appropriate
+→ namespace-level statistical baseline
+→ generic statistical baseline
+→ deterministic rules.
+
+ML must remain gated by the approved data-quality/readiness criteria. Do not force ML when the history or feature quality is insufficient.
+
+2. Inspectable analytical path and evidence:
+Make the analytical path and evidence model first-class and queryable.
+
+For every non-trivial insight, persist:
+- analytical layers actually used
+- layers skipped and why
+- contributing signals/features
+- historical baseline used
+- temporal/correlation evidence
+- supporting observation references
+- uncertainty/alternative hypotheses
+- confidence and its documented meaning
+
+The system must be able to explain HOW and WHY each insight was generated without recomputing the entire analysis.
+
+Do not otherwise redesign the approved architecture.
+
+Now implement the complete approved Phase 0 → Phase 7 plan sequentially, with each phase tested and validated before proceeding to the next.
+
+Preserve all previously approved constraints, including:
+- existing dashboard jobs remain unchanged
+- namespace/RBAC limitations
+- no node/HPA/PVC/cluster-wide analytics
+- maintenance-window restart handling
+- no unsupported dependency/root-cause claims
+- raw observations remain preserved
+- existing API/dashboard compatibility
+
+Do not stop after Phase 0/1. Continue through Phase 7 unless you encounter a genuine architectural blocker.
+
+At completion, provide a concise implementation summary, tests performed, files changed, and any deviations from the approved design.
+
+Use the approved architecture as the source of truth rather than restating or recreating it.
