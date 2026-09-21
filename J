@@ -1,0 +1,588 @@
+Expand the Smart Insights engine into a Kubernetes operational analytics engine
+
+I want to significantly expand the existing Smart Insights engine beyond simple threshold-based rules.
+
+Do not start coding immediately.
+
+First inspect the existing implementation end-to-end:
+
+* snapshot collection
+* analytics/insight collectors
+* analyzers
+* aggregators
+* SQLite storage
+* insight lifecycle
+* existing dashboard jobs
+* Kubernetes API usage
+* current RBAC assumptions
+* existing dependencies
+
+Produce an implementation/design assessment first, then implement the agreed architecture without breaking existing dashboard jobs.
+
+⸻
+
+Objective
+
+The existing dashboard jobs are intentionally lightweight and user-facing.
+
+Examples:
+
+* Pod Count Summary currently retrieves pod status and counts running/non-running pods.
+* Tenant Utilization retrieves CPU/memory information and displays utilization.
+
+I do not want to overload those jobs with analytics logic.
+
+Instead, create/extend a separate analytics data collection layer whose purpose is to collect additional Kubernetes data that can be stored historically and analyzed by the Smart Insights engine.
+
+The goal is to evolve Smart Insights from:
+
+current value → threshold → insight
+
+toward:
+
+historical observations → feature engineering → statistical analysis → anomaly detection → correlation → evidence → insight
+
+The final system should be suitable both for operational use and as a technical showcase of Kubernetes analytics, statistics, anomaly detection, and machine-learning capabilities.
+
+⸻
+
+1. STRICT ACCESS/RBAC CONSTRAINT
+
+This is extremely important.
+
+The application does not have cluster-admin access.
+
+The service account/user only has access to the namespaces/resources that its existing Kubernetes permissions allow.
+
+Do NOT introduce assumptions that require:
+
+* cluster-wide node access
+* cluster-wide metrics
+* other namespaces that the user cannot access
+* cluster-admin permissions
+* HPA resources
+* node conditions
+* node pressure
+* cluster-level infrastructure metrics
+
+The analytics collector must operate only on resources that the current Kubernetes identity can actually read.
+
+Before implementing new collectors:
+
+1. Inspect the existing Kubernetes client configuration.
+2. Determine which API resources are already accessible.
+3. Identify whether the current client is namespace-scoped or cluster-scoped.
+4. Design collectors around the accessible scope.
+5. Do not request elevated permissions merely to make analytics work.
+
+If a potentially useful metric is inaccessible, gracefully omit it and document that limitation.
+
+2. DATA WE DO WANT TO COLLECT
+
+Focus primarily on workload/application-level information available within the accessible namespaces.
+
+Pod-level data
+
+Collect historical observations for:
+
+* namespace
+* pod name
+* deployment/owner
+* ReplicaSet/owner where available
+* container name
+* pod phase
+* pod conditions
+* Ready state
+* Initialized state
+* ContainersReady state
+* pod start time
+* creation time
+* deletion timestamp where available
+* container state
+* waiting reason
+* terminated reason
+* exit code
+* startedAt
+* finishedAt
+* restart count
+* previous container state
+* image name
+* image ID where available
+
+Do not merely store the current value. Preserve timestamped observations so that trends and persistence can be analyzed.
+
+⸻
+
+3. RESTART ANALYTICS
+
+Restart behavior is one of the most important analytical areas.
+
+Do NOT treat raw restart count as an automatic indicator of application instability.
+
+The environment has two important characteristics:
+
+A. Scheduled/expected infrastructure restart
+
+The cluster may be unavailable during a recurring overnight maintenance/restart period, approximately around 21:30 IST until approximately 06:30 IST.
+
+This does not happen every night, so do not hard-code the assumption that every occurrence is a failure.
+
+Make the maintenance window configurable.
+
+The analytics engine should recognize observations occurring inside a configured maintenance window as potentially expected infrastructure activity.
+
+It should not generate restart-anomaly insights simply because many pods restarted during this period.
+
+Prefer classification such as:
+
+expected_maintenance_restart
+
+rather than silently deleting the data.
+
+Preserve the raw observations for historical analysis.
+
+B. External dependency outage
+
+Some dependent applications such as Kafka/database are hosted externally on VMs.
+
+When these dependencies are unavailable:
+
+* application health checks may fail
+* containers may restart
+* pods may enter CrashLoopBackOff
+* restart counts may continuously increase
+
+These restarts should NOT automatically be interpreted as application defects.
+
+The engine should look for evidence of dependency-correlated failure patterns using whatever information is actually available, such as:
+
+* container state
+* health/readiness failures
+* Kubernetes events
+* pod condition changes
+* termination reasons
+* timestamps
+* application/deployment correlation
+* simultaneous failures across multiple pods belonging to the same dependency-consuming application
+* log-derived evidence if an existing accessible log source is already available
+
+If sufficient evidence exists, classify the event as something like:
+
+dependency_correlated_failure
+
+rather than:
+
+application_restart_anomaly
+
+Do not claim a dependency is the root cause unless there is sufficient evidence.
+
+If evidence is insufficient, use an uncertainty-aware classification such as:
+
+restart_anomaly_with_possible_dependency_correlation
+
+The raw restart data must still be retained.
+
+⸻
+
+4. RESTART FEATURES
+
+Derive analytical features rather than only storing raw restart counts.
+
+Examples:
+
+* restart count
+* restart delta between observations
+* restart rate per hour
+* rolling restart rate
+* restart acceleration
+* restart burst frequency
+* time since last restart
+* time spent in CrashLoopBackOff
+* consecutive observations in a failed state
+* restart rate relative to historical baseline
+* restart rate relative to deployment baseline
+* restart concentration by application
+* restart concentration by namespace
+
+Separate:
+
+* expected maintenance activity
+* dependency-correlated activity
+* deployment/change-related activity
+* application-level abnormal activity
+* unknown activity
+
+where evidence permits.
+
+⸻
+
+5. DEPLOYMENT/WORKLOAD DATA
+
+Collect accessible deployment/workload information:
+
+* desired replicas
+* current replicas
+* ready replicas
+* available replicas
+* unavailable replicas
+* updated replicas
+* deployment generation
+* observed generation
+* deployment conditions
+* rollout state
+* image/version information
+* deployment changes over time
+
+Use this to derive features such as:
+
+* availability ratio
+* replica deficit
+* rollout duration
+* rollout degradation
+* availability trend
+* deployment-related restart changes
+* relationship between deployment changes and subsequent failures
+
+⸻
+
+6. CPU/MEMORY ANALYTICS
+
+Reuse existing CPU/memory data where possible rather than creating redundant collection.
+
+Preserve historical observations for:
+
+* CPU usage
+* memory usage
+* CPU requests
+* CPU limits
+* memory requests
+* memory limits
+
+Derive:
+
+* utilization percentage
+* resource headroom
+* sustained high utilization
+* sudden spikes
+* rolling average
+* rolling median
+* percentiles
+* deviation from historical baseline
+* over-provisioning indicators
+* under-provisioning indicators
+* resource saturation patterns
+
+⸻
+
+7. KUBERNETES EVENTS
+
+Collect accessible Kubernetes Events because they provide important contextual evidence.
+
+Capture:
+
+* timestamp
+* namespace
+* involved object
+* event type
+* reason
+* message
+* reporting component where available
+* occurrence/count where available
+
+Analyze patterns such as:
+
+* repeated BackOff
+* FailedScheduling
+* FailedMount
+* Unhealthy
+* Evicted
+* image pull failures
+* repeated warning events
+* event bursts
+* event persistence
+
+Events should be treated as supporting evidence, not permanent ground truth, because their retention is limited.
+
+⸻
+
+8. IMAGE / CHANGE CORRELATION
+
+Track deployment/image changes when accessible.
+
+The engine should be capable of asking:
+
+Did application health change shortly after a deployment/image change?
+
+Analyze relationships between:
+
+* image/version change
+* restart rate
+* CrashLoopBackOff
+* readiness failures
+* replica availability
+* warning events
+* CPU/memory changes
+
+Do not claim causality from correlation alone.
+
+Use language such as:
+
+temporally associated with
+
+or:
+
+potentially related to
+
+when evidence does not establish causality.
+
+⸻
+
+9. DO NOT IMPLEMENT THESE AREAS
+
+Explicitly exclude:
+
+* node information
+* node pressure
+* node CPU/memory
+* cluster-wide node analytics
+* HPA
+* PVC/storage analytics
+* cluster-admin-only resources
+* resources outside the application’s RBAC scope
+
+Do not add collectors for these areas merely because Kubernetes supports them.
+
+⸻
+
+10. ANALYTICS STACK
+
+Evaluate the current Python standard-library-only analytical implementation.
+
+I specifically want the engine to become capable of more sophisticated statistical analysis.
+
+Evaluate and introduce libraries where they provide genuine analytical value:
+
+Pandas
+
+For:
+
+* historical time series
+* grouping
+* resampling
+* rolling windows
+* feature engineering
+* historical aggregation
+
+NumPy
+
+For:
+
+* numerical operations
+* vectorized calculations
+* statistical features
+* normalization
+* numerical anomaly scoring
+
+SciPy
+
+Use selectively where statistically meaningful:
+
+* statistical tests
+* distributions
+* outlier analysis
+* signal/time-series analysis
+* other appropriate statistical methods
+
+scikit-learn
+
+Evaluate whether it should be introduced for:
+
+* Isolation Forest
+* clustering
+* anomaly detection
+* feature scaling
+* dimensionality reduction where useful
+* other appropriate unsupervised methods
+
+Do NOT add libraries simply to increase the dependency list.
+
+For every new library, document:
+
+problem → method → why this library → why simpler methods are insufficient
+
+⸻
+
+11. ANALYTICAL LAYERS
+
+Design the engine as multiple analytical layers.
+
+Layer 1: deterministic rules
+
+Obvious operational conditions.
+
+Layer 2: statistical analysis
+
+Historical baselines, percentiles, rolling statistics, deviations, MAD, etc.
+
+Layer 3: time-series analysis
+
+Trend, persistence, rate of change, acceleration, change points where appropriate.
+
+Layer 4: anomaly detection
+
+Use multivariate features where enough historical data exists.
+
+Layer 5: correlation/evidence analysis
+
+Connect:
+
+* deployments
+* restarts
+* pod states
+* events
+* resources
+* availability
+
+Layer 6: insight synthesis
+
+Combine evidence into a human-readable insight.
+
+The engine should explain why it generated an insight rather than simply returning a severity.
+
+⸻
+
+12. COLD START
+
+Do not run sophisticated anomaly detection when there is insufficient historical data.
+
+Define minimum history requirements for:
+
+* rolling statistics
+* baselines
+* anomaly detection
+* ML models
+
+During cold start, fall back to deterministic/statistical rules.
+
+Clearly distinguish:
+
+insufficient_history
+
+from:
+
+normal
+
+13. INSIGHT EVIDENCE
+
+Every analytical insight should internally retain supporting evidence.
+
+for example
+
+Insight:
+Elevated restart behavior
+
+Evidence:
+restart rate: 12/hour
+historical median: 1.5/hour
+95th percentile: 4/hour
+current deviation: significant
+CrashLoopBackOff: 6 consecutive observations
+recent deployment change: yes
+dependency correlation: possible
+
+The UI does not need to display all of this immediately, but the backend should retain it so the Smart Insights UI can later expose the evidence.
+
+⸻
+
+14. SMART INSIGHT OUTPUT
+
+Do not generate an insight merely because one metric crossed a threshold.
+
+Prefer evidence-based statements such as:
+
+Restart activity is significantly above this application's historical baseline and has persisted across 6 observations.
+
+or:
+
+Multiple pods began failing shortly after a deployment change. The timing suggests a possible deployment-related correlation.
+
+or:
+
+Repeated restarts coincide with a known dependency outage pattern; restart activity is excluded from application-instability scoring.
+
+Avoid claiming certainty when the data does not support it.
+
+⸻
+
+15. STORAGE
+
+Extend the existing SQLite architecture rather than introducing another database.
+
+Keep raw observations separate from derived analytical features and generated insights.
+
+Prefer a logical structure similar to:
+
+raw observations
+       ↓
+derived features
+       ↓
+analytical results
+       ↓
+insight lifecycle
+
+Avoid creating another collection of unrelated SQLite databases.
+
+Design indexes around:
+
+* timestamp
+* namespace
+* workload
+* pod
+* insight type
+
+Retention must be configurable.
+
+⸻
+
+16. PERFORMANCE
+
+The analytics collector must not make the dashboard sluggish.
+
+Separate:
+
+* user-facing dashboard refresh
+* analytics collection
+* historical analysis
+
+Avoid repeatedly querying the Kubernetes API for information that is already available in the existing dashboard data.
+
+Prefer incremental snapshots/deltas where appropriate.
+
+⸻
+
+17. IMPORTANT: DESIGN BEFORE IMPLEMENTATION
+
+Before modifying code, provide:
+
+1. Current architecture assessment
+2. Existing data sources
+3. New Kubernetes data sources proposed
+4. RBAC/accessibility assessment
+5. SQLite schema changes
+6. Feature-engineering design
+7. Statistical methods
+8. ML/anomaly-detection methods
+9. Restart classification strategy
+10. Dependency-outage handling strategy
+11. Maintenance-window strategy
+12. Cold-start strategy
+13. Proposed insight types
+14. Required Python dependencies
+15. Expected computational cost
+16. Testing strategy
+
+Do not implement until this design has been reviewed.
+
+The goal is not to maximize the number of algorithms.
+
+The goal is to build a technically credible Kubernetes operational analytics engine where every analytical technique has a clear purpose and every generated insight can be backed by evidence.
