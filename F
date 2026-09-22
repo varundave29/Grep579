@@ -1,0 +1,102 @@
+The Image Version backend logic itself should NOT be changed at this stage.
+
+I manually executed the backend commands from Git Bash for multiple applications and confirmed that:
+
+* the correct session manager can be accessed
+* the session token can be retrieved
+* Kubernetes deployments/images can be retrieved
+* the ADO lookup can be executed
+
+Therefore, the current problem appears to be specific to the browser/UI execution path.
+
+There are two issues to investigate.
+
+Issue 1: UI is using the wrong login/session
+
+When I trigger Image Version from the browser UI, the backend sometimes uses a different user’s/session identity than the application I selected.
+
+For example, Application A may work, while another application causes the backend to use a different login/session, resulting in Kubernetes 403 Forbidden when retrieving deployments.
+
+Do NOT hardcode any user, application, namespace, or credentials.
+
+Trace the complete request path:
+
+Browser
+→ frontend Image Version request
+→ backend endpoint
+→ application/user context
+→ session manager
+→ Kubernetes credentials/session
+→ namespace
+
+Determine exactly where the wrong user/application context is being introduced.
+
+Inspect:
+
+* frontend API request payload
+* application identifier being sent
+* selected application state
+* browser localStorage/sessionStorage/cookies if relevant
+* backend request parameters
+* backend application/session resolution
+* session manager lookup
+* any cached authentication/application state
+* global/shared variables that could retain the previous application/user
+
+Pay particular attention to whether application/session information is stored globally and reused between requests.
+
+Do not fix anything until the actual source of the wrong identity is identified.
+
+Issue 2: Port 51375 vs 8010
+
+The local utility is currently exposed through two ports:
+
+* 51375 = hot-reload development instance
+* 8010 = normal/non-hot-reload instance
+
+Port 51375 contains the latest UI changes.
+
+Port 8010 is serving an older UI. It contains some newer functionality but is missing several recent UI changes, including the latest hamburger/navigation changes and Image Version UI changes.
+
+Investigate why these two ports are serving different application versions.
+
+Determine:
+
+1. What process is listening on each port.
+2. Whether they are separate frontend/backend processes.
+3. Which source/build directory each process is serving.
+4. Whether 8010 is serving a stale frontend build.
+5. Whether the backend API used by each frontend is the same backend instance.
+6. Whether the frontend on 51375 and 8010 use different API base URLs.
+7. Whether an old Node/Vite/React process is still running.
+8. Whether a production build is required for 8010.
+9. Whether browser/service-worker/cache behavior could explain the difference.
+
+Do not simply clear caches or rebuild blindly. First identify why the two ports differ.
+
+Important constraints
+
+Do NOT:
+
+* modify Image Version ADO lookup logic
+* modify Kubernetes authentication logic
+* hardcode the working application’s user/session
+* hardcode namespaces
+* introduce application-specific exceptions
+* change the validated Image Version processing
+* make broad authentication changes
+
+The goal is diagnosis first.
+
+Expected result
+
+Give me a concise root-cause report identifying:
+
+1. Why the browser request is using the wrong user/session for some applications.
+2. Where the application/session context is being lost or incorrectly reused.
+3. Why port 51375 and port 8010 are serving different UI versions.
+4. Whether the two ports are connected to different backend processes/API instances.
+
+Only after identifying the root cause, propose the smallest fixes necessary.
+
+Do not implement the fixes yet unless the cause is clear and the fix is isolated.
