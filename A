@@ -1,0 +1,63 @@
+The Image Version implementation is now working correctly for one application, including the ADO repository, build, branch, and commit resolution.
+
+Do NOT modify or refactor any of that working logic.
+
+We now have a problem with other applications.
+
+The UI error shows that the Image Version job fails while collecting deployments from Kubernetes:
+
+403 Forbidden
+deployments is forbidden
+cannot get resource deployments
+
+This means the failure occurs during Kubernetes deployment discovery, before image extraction and before the ADO lookup.
+
+Task
+
+Investigate why deployment discovery works for one application but returns HTTP 403 for other namespaces.
+
+First inspect the existing Kubernetes client/authentication and namespace handling used by the Image Version job and compare it with the existing working jobs in the utility.
+
+Specifically verify:
+
+1. How the Kubernetes credentials/session are obtained.
+2. How the namespace is selected for each application.
+3. Whether the correct namespace is actually being passed to the Kubernetes API.
+4. Whether the same Kubernetes authentication/session mechanism used by the other working jobs can be reused.
+5. Whether the failure is caused by an incorrect namespace, context, service account, or RBAC permission.
+
+Important constraints
+
+Do NOT hardcode any application, namespace, repository, deployment, or environment.
+
+Do NOT change the ADO lookup logic.
+
+Do NOT change the repository/digest matching logic.
+
+Do NOT change the working Image Version output format.
+
+Do NOT make broad authentication or Kubernetes architecture changes.
+
+Do NOT weaken or bypass Kubernetes RBAC.
+
+First diagnose the exact cause of the 403.
+
+If the code is incorrectly selecting the namespace or using a different Kubernetes session than the existing working jobs, fix only that issue.
+
+If the Kubernetes credentials genuinely lack get/list permission for deployments in those namespaces, report that clearly rather than attempting to work around RBAC in code.
+
+Regression protection
+
+Before making changes, identify the exact code path that currently works for the already-working application.
+
+Preserve that behavior.
+
+After the change, verify that:
+
+* the currently working application still produces exactly the same correct Image Version results
+* the other applications can retrieve their deployments
+* image extraction remains unchanged
+* the ADO lookup remains unchanged
+* repository/build/commit results remain unchanged
+
+The objective is only to fix Kubernetes deployment discovery for namespaces where it currently returns 403.
