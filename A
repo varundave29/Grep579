@@ -1,0 +1,103 @@
+We have identified that the Image Version UI path can reuse a cached managed Kubernetes session belonging to the wrong application/user.
+
+Before changing anything, investigate how the existing Pod Status and Tenant Metrics/Utilization jobs handle Kubernetes sessions when switching between multiple applications.
+
+These jobs already work correctly across multiple applications, so they should be treated as the reference implementation.
+
+Phase 1: Compare and diagnose
+
+Inspect the complete execution path for:
+
+1. Pod Status
+2. Tenant Metrics/Utilization
+3. Image Version
+
+Compare:
+
+* frontend application selection/state
+* API request payload
+* backend application resolution
+* Kubernetes session manager usage
+* managed-session handling
+* kubeconfig/session caching
+* session reuse/invalidation
+* how the application/user identity is associated with the Kubernetes session
+
+Determine why Pod Status and Tenant Metrics can switch applications correctly while Image Version can reuse the wrong cached session.
+
+Do not change code during this phase.
+
+If the existing jobs use a reusable pattern that correctly handles application-specific sessions, identify the exact implementation and explain how Image Version differs.
+
+Phase 2: Implement the smallest fix
+
+If the existing working jobs provide a suitable session-management pattern, reuse that pattern for Image Version.
+
+Do NOT create a separate session-management implementation for Image Version.
+
+Do NOT hardcode any application, username, namespace, or credentials.
+
+Do NOT change:
+
+* Image Version ADO lookup logic
+* repository/digest matching
+* Kubernetes image extraction
+* Image Version output
+* working Pod Status or Tenant Metrics behavior
+
+The goal is only to ensure that Image Version uses the correct Kubernetes session for the selected application.
+
+If the shared session manager itself needs modification, make the smallest generic change necessary so that cached sessions cannot be incorrectly reused across different application/user contexts.
+
+Preserve existing behavior for all jobs.
+
+Local environment cleanup
+
+Before validation, inspect the currently running local processes.
+
+Cleanly stop the existing frontend/backend development processes that belong to this utility.
+
+Then start the intended frontend and backend processes from the current workspace so that we are testing the current source code rather than an old/stale process.
+
+Do not blindly kill unrelated processes.
+
+After startup, verify:
+
+* which process owns the frontend port
+* which process owns the backend port
+* the process/PID
+* that both are using the current workspace/source
+* that the frontend is calling the expected backend
+
+This cleanup is for validation and must not be treated as the permanent fix for the session problem.
+
+Validation
+
+After the fix, test Image Version by switching between at least three different applications, including the previously working application and applications that previously returned 403.
+
+For each application verify:
+
+Application selected in UI
+→ correct application sent to backend
+→ correct Kubernetes session
+→ correct namespace
+→ deployments retrieved
+→ images retrieved
+→ ADO lookup executed
+→ correct Image Version result
+
+Also verify that switching:
+
+Application A → Application B → Application A
+
+does not cause Application B to reuse Application A’s Kubernetes session.
+
+Important
+
+Do not assume the problem is frontend/backend synchronization.
+
+First use the working Pod Status and Tenant Metrics implementations to determine whether the session-management difference explains the issue.
+
+Only investigate frontend/backend stale-build or synchronization issues if the comparison does not explain the behavior.
+
+Do not make unrelated changes.
