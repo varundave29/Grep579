@@ -1,0 +1,52 @@
+The Image Version script is currently hanging indefinitely when I run it manually, even though the ADO PAT is correctly exported in my local environment.
+
+Do NOT change the existing lookup logic. Do NOT redesign anything.
+
+I only want to make the current script fully traceable so we can identify exactly where it hangs.
+
+Add the following:
+
+1. Timestamped logs before and after every major step
+    * Read arguments
+    * Read PAT
+    * Prepare ADO request
+    * Send ADO request
+    * Receive response
+    * Parse JSON
+    * Process/filter results
+    * Extract build/branch/commit
+    * Generate final JSON
+2. HTTP tracing for every ADO request
+    Log:
+    * HTTP method
+    * sanitized URL
+    * request start
+    * response status
+    * elapsed time
+    * response size
+    NEVER log the PAT or authorization header.
+3. Timeout every HTTP request
+    Use a 15-second timeout. There must be no request that can hang indefinitely.
+4. Trace loops and pagination
+    Log each API page/iteration so we can detect an infinite loop or unexpectedly large result set.
+5. Trace subprocess calls, if any, and give them a timeout as well.
+6. Do not swallow exceptions.
+    Print the exception and full traceback.
+7. Flush logs immediately so output appears in the terminal while the script is running.
+8. At the end, clearly log either:
+
+[SUCCESS] Lookup completed
+
+    or
+
+[RESULT] No matching data
+
+    or
+
+[ERROR] Lookup failed
+
+Do not modify the repository matching, digest matching, ADO lookup, or output logic.
+
+After making only these diagnostic changes, give me the exact command to run the script manually.
+
+The purpose of this change is only to identify the exact operation where the script is hanging.
