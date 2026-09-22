@@ -1,0 +1,155 @@
+We are reintroducing the Image Version job into the utility, but only for Application X for this first implementation. Do not generalize to other applications yet.
+
+Existing validated script
+
+I have already created and tested a standalone Python script outside the current workspace.
+
+The script:
+
+* Uses Azure DevOps REST APIs.
+* Accepts exactly two inputs:
+    1. repository name
+    2. image digest
+* Returns the required ADO information as JSON.
+* The returned JSON has already been validated across all environments and fixes the issues we previously had with the Image Version job.
+
+I have already provided:
+
+* The path to this standalone script.
+* The sample command used to execute it.
+
+First task: inspect the provided script and copy/adapt it into this workspace as the Image Version Python implementation. Preserve its existing working REST API logic. Do not rewrite or replace the ADO lookup logic unless required for integration.
+
+Scope for this iteration
+
+Implement the Image Version job only for Application X.
+
+Do not modify or implement support for other applications yet.
+
+The job should follow the existing utility pattern for:
+
+* connecting to the Kubernetes namespace
+* discovering deployments
+* retrieving the container image references from those deployments
+
+Do not hardcode repository names or digests.
+
+Image → repository + digest discovery
+
+For every relevant deployment in Application X:
+
+1. Get the image reference from the Kubernetes deployment.
+2. Determine the repository name from the image reference.
+3. Determine the digest from the image reference, including the sha256: portion as required by the validated script.
+4. Pass:
+    * repository name
+    * digest
+        to the copied Image Version Python script.
+5. Parse the JSON returned by the script.
+
+Important: Before implementing the parsing, inspect the existing utility code and determine the actual image formats currently returned by Kubernetes. Do not assume the image format. Handle the repository and digest extraction based on the formats actually used by this utility.
+
+If there are multiple containers/images in a deployment, inspect the existing conventions in the utility and preserve the appropriate behavior. Do not invent new selection rules.
+
+JSON interpretation
+
+The Image Version script is the source of truth for the ADO lookup.
+
+First understand and document the actual JSON structure returned by the script.
+
+Use the returned JSON fields to populate the UI. Do not reconstruct ADO URLs manually if the script already provides them.
+
+For this first version, the table should contain:
+
+Column	Source
+Deployment	Kubernetes deployment name
+Repository	Branch/repository URL returned by the JSON
+Build	Build URL returned by the JSON
+Commit	Commit URL returned by the JSON
+Image	Original Kubernetes image reference
+
+The Repository, Build, and Commit values must be hyperlinks using the URLs returned by the JSON.
+
+When clicked, each link should open the corresponding URL in a new browser tab.
+
+Image column
+
+Display the image reference in truncated form so the table remains compact.
+
+When the user hovers over the truncated image value, show the complete original image reference in a tooltip/popover.
+
+Do not modify the underlying image value.
+
+Error / missing data handling
+
+Handle cases where:
+
+* a deployment has no image
+* the image does not contain a usable digest
+* repository extraction fails
+* the Image Version script returns no matching ADO information
+* the script returns an error
+* the returned JSON is missing an expected field
+
+Do not allow one failed deployment lookup to break the entire job.
+
+The UI should show an appropriate missing/unavailable state for that deployment and continue processing the remaining deployments.
+
+Important implementation constraint
+
+Do not bring back the previous Image Version implementation.
+
+The old implementation was removed because of the issues we encountered previously. Treat the newly provided standalone script as the validated implementation.
+
+Do not introduce:
+
+* Elasticsearch
+* OpenSearch
+* Kafka
+* OpenTelemetry
+* additional databases
+* unnecessary new services
+* speculative abstractions
+
+Keep the implementation consistent with the existing utility architecture.
+
+Before changing code
+
+Inspect the existing codebase and identify:
+
+1. How Application X is currently identified.
+2. How its Kubernetes namespace is obtained.
+3. How deployments are currently retrieved.
+4. How container images are currently extracted from deployments.
+5. How existing jobs expose their results to the frontend.
+6. The existing table/component used for displaying job results.
+7. Existing hyperlink, tooltip/popover, and truncated-text patterns that can be reused.
+
+Then implement the smallest change necessary.
+
+Validation
+
+For this iteration, validate only Application X.
+
+Use the existing sample/test environment and verify the complete flow:
+
+Kubernetes deployment
+→ image reference
+→ repository extraction
+→ digest extraction
+→ Image Version Python script
+→ JSON response
+→ JSON interpretation
+→ UI table
+
+Verify that:
+
+* multiple deployments are processed
+* each deployment receives its own repository/digest lookup
+* the correct JSON result is associated with the correct deployment
+* Repository, Build, and Commit are clickable hyperlinks
+* links open in a new tab
+* the complete image is available through the tooltip
+* one failed lookup does not stop other deployments from being processed
+
+Do not extend this to other applications until this Application X implementation is working correctly.
