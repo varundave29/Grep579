@@ -1,0 +1,84 @@
+The source-code comparison shows that Image Version, Pod Status, and Tenant Metrics use the same application/session routing path.
+
+Do not make any code changes to the session manager yet.
+
+I want one controlled runtime test to identify what actually happens when the browser switches applications.
+
+Step 1: Clean restart
+
+Stop only the utility’s frontend and backend processes.
+
+Confirm no old process is listening on the relevant ports.
+
+Start the current workspace frontend and backend cleanly.
+
+Step 2: Add temporary diagnostic logging only
+
+For every Image Version browser request, log:
+
+1. Application ID received by backend
+2. Namespace
+3. Whether managed Kubernetes session is being used
+4. Whether an existing cached session is being reused or a new session is created
+5. The application ID associated with the session being reused/created
+6. The Kubernetes identity/session source being used, but NEVER print tokens, passwords, kubeconfig contents, or secrets
+7. Kubernetes API operation being performed
+8. Result of the deployment-list operation, including HTTP status
+
+The critical trace should look conceptually like:
+
+[IMAGE-VERSION]
+requested_app=XXXXX
+namespace=XXXXX
+[K8S-SESSION]
+requested_app=XXXXX
+session_mode=managed
+session_action=reused|created
+session_app=XXXXX
+[K8S]
+operation=list deployments
+namespace=XXXXX
+status=200|403
+
+Do not expose credentials.
+
+Step 3: Browser test
+
+I will manually perform exactly this sequence from the browser:
+
+Application A
+→ Refresh Image Version
+
+Application B
+→ Refresh Image Version
+
+Application A
+→ Refresh Image Version
+
+Do not restart anything between these three tests.
+
+Step 4: Compare the trace
+
+Determine whether:
+
+A. requested_app != session_app
+
+or
+
+B. requested_app == session_app but Kubernetes still returns 403
+
+or
+
+C. the frontend/backend application IDs differ
+
+or
+
+D. the session is correctly recreated but the Kubernetes identity lacks deployment permission.
+
+Do not guess.
+
+Important
+
+Do not change Image Version logic, ADO logic, repository/digest matching, Kubernetes authentication, or session-manager behavior until this trace identifies which of A/B/C/D is actually occurring.
+
+After the trace, give me the root cause and the smallest required fix only.
