@@ -1,0 +1,43 @@
+The latest trace confirms that Kubernetes discovery is working.
+
+The parent Image Version job successfully finds the deployments and images, but every invocation of find_digest_ado.py reaches the subprocess timeout.
+
+Stop debugging the parent Image Version job for now.
+
+Debug the actual lookup script
+
+Inspect find_digest_ado.py, because that is where the execution is blocking.
+
+I need the agent to:
+
+1. Add detailed tracing inside find_digest_ado.py.
+2. Add a timeout to every HTTP request made by this script.
+3. Log immediately before and after every ADO REST API request.
+4. Log:
+    * sanitized endpoint
+    * HTTP method
+    * request start
+    * response status
+    * response time
+    * JSON parsing
+    * repository/build/commit matching steps
+5. Never print the PAT or Authorization header.
+6. Log whether the PAT was detected.
+7. Trace any pagination or loops.
+8. Do not change the existing repository/digest matching logic yet.
+
+Most importantly, identify the exact ADO API request where the script blocks.
+
+Direct execution test
+
+After adding the tracing, give me the exact command to run find_digest_ado.py directly from my terminal using the same repository and digest that the parent job passed to it.
+
+I will run that command manually with my exported PAT.
+
+Do not run the real ADO lookup from the agent environment because the agent cannot access my PAT.
+
+The immediate goal is:
+
+find_digest_ado.py → identify exact blocking operation
+
+Do not make any other functional changes.
