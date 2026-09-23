@@ -1,0 +1,79 @@
+Based on the investigation you just completed for the previous Pod Metrics Live Monitoring cancellation, I want you to now implement a lightweight but reliable diagnostic/audit trail for Pod Metrics Live Monitoring.
+
+Do not blindly implement the examples below or assume the old code paths are still identical. Inspect the current implementation first, especially because Snapshot support and the newer session/job architecture were added after the logs you just analyzed.
+
+The goal is simple:
+
+If a critical long-running Pod Metrics Live Monitoring job terminates unexpectedly, the job logs must allow us to determine WHY it terminated and WHAT initiated the termination, without requiring live access to the remote production VM.
+
+For every live-monitoring run, capture enough structured lifecycle information to distinguish at minimum:
+
+- User explicitly clicked Stop
+- Admin explicitly stopped the job
+- WebSocket/session disconnect caused cleanup
+- Session expiry or deadline caused cancellation
+- Application/backend initiated cancellation
+- Job/process crashed or failed
+- Internal exception/error caused termination
+- Process exited unexpectedly
+- Network/proxy/connectivity issue caused the session or collector to fail
+- Frontend requested cancellation but the backend did not receive/complete it correctly
+- Backend initiated cancellation but the frontend did not reflect it correctly
+- Normal/completed termination
+- Any other cancellation/termination path that exists in the current implementation
+
+I specifically want to avoid the current situation where the log only says something like "termination signal received from user" and then we have to guess what actually happened.
+
+Please trace the complete lifecycle and identify the actual termination/cancellation paths in the CURRENT code.
+
+For each significant lifecycle transition, capture useful diagnostic context such as:
+
+- job/run ID
+- user who started it
+- session ID
+- application/job identity
+- namespace where applicable
+- timestamp
+- lifecycle event
+- termination/cancellation source
+- termination reason
+- requesting user, when applicable
+- whether the request originated from frontend, backend, timeout/deadline, disconnect cleanup, etc.
+- signal received, if applicable
+- process exit code
+- relevant exception/error information
+- cleanup result
+- job duration at termination
+
+Do not log every metrics poll or every normal WebSocket message. I do NOT want verbose tracing or a high-volume logging system. Keep this lightweight and focused on lifecycle events, abnormal conditions, cancellation paths, and the final outcome.
+
+Most importantly, make the final termination record unambiguous enough that someone inspecting the remote VM logs later can answer:
+
+1. Who started this run?
+2. Who, if anyone, requested it to stop?
+3. Did the stop originate from the UI, backend, timeout, disconnect, cleanup, or somewhere else?
+4. Did the backend actually receive and process the request?
+5. What signal/termination mechanism was used?
+6. Did the underlying process exit normally or unexpectedly?
+7. What was the exit code?
+8. Was there an exception or infrastructure/network problem?
+9. Did cleanup happen successfully?
+10. What was the final reason the job ended?
+
+Also inspect the interaction between frontend, WebSocket/session handling, backend executor, cancellation API, timeout/deadline handling, and cleanup logic. If there are cases where the current implementation cannot reliably distinguish two termination causes, improve the instrumentation at the appropriate boundary rather than guessing the reason afterward.
+
+Please preserve the existing job behavior. This is primarily an observability/diagnostic hardening change, not a redesign of the metrics collector.
+
+Do not introduce OpenTelemetry, distributed tracing, a new logging framework, or high-frequency debug logging.
+
+Logging must also be best-effort and must never become a reason for the actual metrics job to fail or terminate.
+
+Before modifying code:
+1. Inspect the current implementation and existing logging conventions.
+2. Map the actual lifecycle and cancellation paths.
+3. Identify where the current logs lose the information needed to determine the termination cause.
+4. Then implement the smallest clean change that gives us reliable forensic information.
+
+After implementation, test the relevant termination paths if practical and summarize exactly what events/reasons are now captured and what evidence we would see in the logs for each termination scenario.
+
+Do not make assumptions from the older pre-Snapshot implementation. Use that investigation as context, but validate everything against the current code.
