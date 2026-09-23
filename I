@@ -1,0 +1,169 @@
+Fresh debugging task. Do not rely on previous agent conclusions.
+
+IMPORTANT:
+Do NOT read, inspect, access, or modify any .env / environment-secret files.
+Do NOT investigate environment configuration files.
+Work only from application source code, existing runtime code paths, and non-secret configuration.
+
+The recent Pod Metrics changes have introduced a regression where Snapshot and Live Monitoring are now mixed together.
+
+Current behavior:
+- Live Monitoring now actually starts and collects metrics.
+- However, the UI is incorrectly combining the Snapshot/table presentation with the Live Monitoring presentation.
+- The Live view should NOT render the Snapshot table as its primary output.
+- The Snapshot view should NOT render the Live WebSocket/chart monitoring UI.
+- The previous "instant close/completed state" issue appears to be partially fixed, so do not undo the working live execution path.
+
+Inspect the current implementation and restore a clean separation:
+
+LIVE MODE
+- Start live metrics job.
+- Use the existing WebSocket/live streaming path.
+- Show the existing live monitoring UI/charts.
+- Continue receiving samples until Stop is pressed or the applicable timeout occurs.
+- Do not replace the live presentation with the Snapshot table.
+- Preserve the existing live session handling, per-user ownership, max 10 active sessions, and role-based timeout.
+
+SNAPSHOT MODE
+- Execute a one-shot metrics collection.
+- Do not create a long-running live session.
+- Do not open/use the live WebSocket for the snapshot request.
+- Render the snapshot result using the new tabular presentation.
+- The table should contain the intended pod/resource metrics already implemented for Snapshot.
+- Keep the snapshot result in the current browser session so switching away and back can restore the previously loaded result.
+- Changing application or namespace must not display stale data from the previous selection. If no snapshot exists for the newly selected application/namespace, show the empty/not-loaded state and require Run.
+- Existing snapshot data for an already loaded application/namespace may be restored from session state.
+
+IMPORTANT ARCHITECTURE:
+Find the current mode/state model and determine why the Live and Snapshot render paths became coupled.
+
+Do not solve this by hiding UI elements with CSS or by adding arbitrary frontend conditions.
+
+Trace:
+mode selection
+→ Start/Run action
+→ backend endpoint
+→ job/session creation
+→ WebSocket or one-shot response
+→ response/frame model
+→ frontend state
+→ renderer
+
+Make the mode boundary explicit and ensure each mode uses its intended execution and rendering path.
+
+Do not duplicate the metrics collector. Reuse the existing shared collector where appropriate.
+
+Do not modify the Insight Engine behavior.
+
+--------------------------------------------------
+REPORT DOWNLOAD
+--------------------------------------------------
+
+After fixing the mode separation, fix the existing broken Download Report behavior.
+
+The report artifact already exists in backend storage, but clicking Download Report does not download the actual file.
+
+Trace the complete download path and fix the actual root cause:
+
+frontend download action
+→ backend download endpoint
+→ report lookup
+→ filesystem artifact
+→ HTTP response
+→ Content-Disposition
+→ browser download
+
+Serve the actual existing HTML report artifact.
+
+Do not generate a replacement report just to make download work.
+
+Verify that the browser receives the actual file contents.
+
+--------------------------------------------------
+REPORT FILE NAME
+--------------------------------------------------
+
+Implement the required naming convention.
+
+DO NOT hardcode or reconstruct application IDs.
+
+The existing report metadata already contains the authoritative application_id value.
+
+Use that existing metadata field.
+
+Filename:
+
+<application_id>_<exact_namespace>_<run_id>.html
+
+Where:
+
+application_id = existing report metadata application_id
+namespace = exact namespace used for this run
+run_id = actual run/build ID
+
+Do not derive application_id from the application name.
+
+Do not hardcode application IDs.
+
+Do not create another application-ID mapping.
+
+Use the same filename consistently for:
+- backend artifact creation/storage
+- report metadata where applicable
+- download response
+- Content-Disposition filename
+
+--------------------------------------------------
+NAMESPACE
+--------------------------------------------------
+
+Remove the report's dependency on namespace beautification.
+
+For generated reports, use the exact configured/selected namespace.
+
+No parsing.
+No prefix stripping.
+No environment extraction.
+No friendly-name conversion.
+
+The report header must show exactly the same namespace used for Kubernetes collection.
+
+The filename must also use that exact namespace.
+
+Example structure only:
+
+<application_id>_<exact_namespace>_<run_id>.html
+
+Do not hardcode example values.
+
+--------------------------------------------------
+VALIDATION
+--------------------------------------------------
+
+Before declaring success, verify all of these:
+
+1. Live mode starts and remains live.
+2. Live WebSocket receives continuous samples.
+3. Live UI shows the live monitoring presentation only.
+4. Stop ends the live session correctly.
+5. Snapshot mode performs a one-shot collection.
+6. Snapshot UI shows the table only.
+7. Snapshot does not accidentally create a live session/WebSocket.
+8. Switching namespace/application does not show stale snapshot data.
+9. Returning to an already loaded application/namespace can restore its session snapshot.
+10. Download Report downloads the real HTML artifact.
+11. Downloaded filename follows:
+    <application_id>_<exact_namespace>_<run_id>.html
+12. application_id comes from existing metadata.
+13. Namespace is exact and unmodified.
+14. Report header uses the exact namespace.
+15. Backend stored filename and downloaded filename are consistent.
+16. Existing per-user session isolation and max 10 active sessions remain intact.
+17. Developer live timeout remains intact.
+18. Do not modify unrelated jobs or Insight Engine logic.
+
+Keep the implementation narrowly scoped.
+
+Do not refactor unrelated code.
+
+Do not declare a fix successful based only on code inspection. Verify the actual execution path and resulting UI state.
