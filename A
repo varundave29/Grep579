@@ -1,0 +1,232 @@
+I found two issues during testing of the new Pod Metrics Snapshot/Live implementation. Investigate and fix these without redesigning unrelated functionality.
+
+==================================================
+BUG 1: LIVE MONITORING IMMEDIATELY ENTERS COMPLETED STATE
+==================================================
+
+When I select Live Monitoring and click Start, the UI immediately changes to what appears to be the completed-run/report state.
+
+Observed behavior:
+
+- Start Live Monitoring is clicked.
+- Instead of remaining in the live monitoring view waiting for/receiving continuous WebSocket samples, the UI immediately shows the completed-run screen.
+- The screen shows the Download Report and Close actions.
+- It also shows "Waiting for the first metrics sample..." even though the UI has already transitioned away from the normal live-monitoring state.
+
+This is incorrect.
+
+Trace the complete lifecycle:
+
+Start Live
+→ backend run creation
+→ live job state
+→ WebSocket connection
+→ first metrics frame
+→ subsequent metrics frames
+→ Stop
+→ completed state
+
+Identify exactly where the frontend/backend state is incorrectly transitioning to the completed state.
+
+IMPORTANT:
+
+- Do not assume the WebSocket implementation itself needs to be rewritten.
+- Do not create a second WebSocket implementation.
+- Preserve the existing live WebSocket architecture.
+- Do not change Snapshot behavior while fixing this unless the shared state model genuinely requires it.
+- The live session must remain active until the user explicitly stops it, or until the role-based timeout terminates it.
+- For developers, the existing 10-minute backend timeout must still work.
+- Tester/other authorized roles must retain their existing unlimited live behavior.
+
+After the fix, verify:
+
+1. Start Live does not immediately show the completed-run UI.
+2. The WebSocket connects.
+3. The UI remains in live-monitoring state while the session is running.
+4. First metrics sample updates the UI.
+5. Subsequent samples continue updating it.
+6. Stop transitions to the completed state.
+7. Developer timeout transitions cleanly to the completed/stopped state with the correct reason.
+8. The active-session slot is released correctly.
+
+==================================================
+BUG 2: SNAPSHOT DATA PERSISTS INCORRECTLY ACROSS SELECTION CHANGES
+==================================================
+
+Snapshot results currently remain displayed when the user changes application or namespace.
+
+Example:
+
+Application A
+Namespace: dev
+→ Run Metrics
+→ A/dev snapshot is displayed.
+
+Then:
+
+Application A
+Namespace: qa
+
+The old A/dev snapshot remains visible while the user is now looking at A/qa.
+
+This is confusing because pod names can be similar across namespaces.
+
+Implement session-scoped Snapshot result caching keyed by:
+
+application + namespace
+
+The cache must belong to the current authenticated browser/session and must NOT be global.
+
+Desired behavior:
+
+1. User selects Application A + dev.
+2. No snapshot has been run yet.
+3. Show an empty/initial state with Run Metrics.
+
+4. User clicks Run Metrics.
+5. Collect the snapshot.
+6. Display the result and its timestamp.
+7. Store that result in the current session's snapshot cache under:
+   Application A + dev.
+
+8. User switches to Application A + qa.
+9. The currently displayed snapshot must be cleared.
+10. Do NOT show the A/dev result while A/qa is selected.
+11. User must explicitly click Run Metrics to obtain a new A/qa snapshot.
+
+12. User runs A/qa.
+13. Store it separately under:
+   Application A + qa.
+
+14. User switches back to A/dev.
+15. Since A/dev was already collected during this login session, restore the previously collected A/dev snapshot.
+16. The original timestamp must remain visible so the user knows when that snapshot was collected.
+17. The user must still have the option to click Run Metrics again to refresh it.
+
+The same behavior must work when switching applications:
+
+Application A + dev
+→ Application B + dev
+→ Application A + dev
+
+A's previous snapshot should be restored when returning to the same application + namespace combination.
+
+However:
+
+- Changing application or namespace must NEVER display a snapshot belonging to a different selection.
+- The cache key must include both application and namespace.
+- Do not key it only by application.
+- Do not use one global snapshot result.
+
+==================================================
+SESSION LIFETIME
+==================================================
+
+The Snapshot cache should exist only for the authenticated user session.
+
+It should be cleared when the user logs out.
+
+After logout/login:
+
+Application A + dev
+→ no previous snapshot
+→ user must Run Metrics again.
+
+Do not persist this snapshot cache to long-term disk/database/history unless the existing architecture already requires that for another purpose.
+
+This is UI/session state, not historical job history.
+
+Do not confuse this with the existing 20-run application history.
+
+Existing history must remain unchanged.
+
+==================================================
+IMPORTANT DISTINCTION
+==================================================
+
+There are two separate concepts:
+
+1. Snapshot session cache
+   - current authenticated session
+   - keyed by application + namespace
+   - allows previously viewed snapshots to be restored during the session
+
+2. Existing job history
+   - existing application-scoped historical runs
+   - already supports 20 runs and triggered_by
+   - must not be redesigned by this task
+
+Do not merge these concepts.
+
+==================================================
+IMPLEMENTATION GUIDANCE
+==================================================
+
+First inspect the existing implementation and identify:
+
+- current Snapshot state
+- current selected application state
+- current selected namespace state
+- where Snapshot results are stored
+- how application/namespace changes currently affect the result component
+- existing logout/session lifecycle
+- current Live Monitoring state machine
+- WebSocket open/close handling
+- completed-run state handling
+
+Reuse existing state management patterns where possible.
+
+Do not introduce unnecessary global state.
+
+The desired conceptual model is:
+
+snapshotCache[
+    applicationId,
+    namespace
+] = {
+    result,
+    collectedAt
+}
+
+When the selected application/namespace changes:
+
+- look for an existing cache entry for the new selection
+- if found, display it
+- if not found, display the empty state and require Run Metrics
+
+Do not show the previous selection's data while the new selection is active.
+
+==================================================
+VERIFICATION
+==================================================
+
+Test at minimum:
+
+LIVE:
+
+A/dev → Start Live → receive samples → Stop
+
+SNAPSHOT:
+
+A/dev → Run
+A/qa → verify empty
+Run A/qa
+A/dev → verify previous A/dev snapshot restored
+Run A/dev again → verify timestamp/data refreshes
+B/dev → verify no A data shown
+A/dev → verify previous A/dev snapshot still exists
+Logout → login
+A/dev → verify no snapshot remains
+
+Also verify that these changes do not affect:
+
+- Insight Engine
+- existing application history
+- 20-run history
+- per-user live session isolation
+- active live-session limit
+- developer 10-minute timeout
+- shared dashboard cache
+- existing WebSocket architecture
+
+Keep the changes narrowly scoped.
