@@ -1,0 +1,114 @@
+I need two small, isolated UI fixes. Please treat them as independent changes within the same task. Do not refactor unrelated components or change existing behavior outside these requirements.
+
+Before making changes, inspect the current implementation and identify the existing components responsible for:
+
+1. iWidget positioning/layering
+2. the hamburger/sidebar navigation
+3. module/submodule rendering and selection state
+
+After identifying the relevant code, make the following changes.
+
+1. Move iWidget back to the left side
+
+The latest UI moved the iWidget to the right side, which is now causing layering and usability problems.
+
+Examples:
+
+* When I select Run for a Job, the terminal opens on the right side.
+* The iWidget currently occupies that same area and has higher z-index/priority, so it overlays the Run button.
+* It also overlays/hides portions of terminal logs.
+
+Change the iWidget placement so that it is permanently positioned on the LEFT side of the application instead.
+
+Requirements:
+
+* Do not tie the iWidget positioning to the hamburger/sidebar expanded/collapsed state.
+* The iWidget should remain on the left regardless of whether the hamburger menu is expanded or collapsed.
+* It must not overlap the main content, Job Run controls, terminals, or terminal logs.
+* Preserve the existing iWidget functionality and appearance as much as possible.
+* Do not solve this merely by lowering its z-index if the underlying layout still causes overlap. The goal is to give the iWidget its own proper left-side placement.
+* Make sure the layout remains usable at the existing supported screen sizes.
+* Do not introduce unrelated responsive-layout changes.
+
+2. Fix collapsed hamburger navigation for modules with submodules
+
+Currently, when the hamburger menu/sidebar is expanded, the Console module correctly shows its submodules.
+
+However, when the sidebar is COLLAPSED:
+
+* Only the main module icons are visible.
+* If I click Console, the currently selected/default Console submodule remains active.
+* There is no way to switch to another Console submodule without first expanding the hamburger menu.
+
+I want the collapsed navigation to support submodule selection directly.
+
+Required behavior when sidebar is COLLAPSED
+
+For modules that contain submodules:
+
+1. Show the normal top-level module icon as it does today.
+2. Add appropriate, meaningful icons for each submodule.
+    * Inspect the existing submodule names/functionality and choose icons that are visually consistent with the application’s existing icon library/style.
+    * Do not invent unnecessary new icon components if an existing icon library/component is already being used.
+3. When the user clicks a top-level module that contains submodules:
+    * Expand/show that module’s submodules directly within the collapsed sidebar.
+    * Present them as a clear tree/branch relationship so it is visually obvious that the displayed submodules belong to the selected parent module.
+    * Keep the parent module visually associated with the child/submodule icons.
+4. The submodules should be individually clickable so the user can switch between them without expanding the entire hamburger menu.
+5. When another top-level module is selected:
+    * Hide/retract the previously displayed submodule branch.
+    * Show the newly selected module’s submodules only if that module has submodules.
+6. If the selected top-level module has no submodules, nothing should expand.
+7. When the sidebar is EXPANDED:
+    * Preserve the current existing behavior.
+    * Continue showing the module names and submodules normally.
+    * Do not redesign the expanded navigation.
+
+Important:
+
+* This behavior should only add the missing collapsed-state functionality.
+* Do not change routing, module names, permissions, existing selection semantics, or expanded-sidebar behavior unless required to implement this correctly.
+* Preserve the currently selected submodule when appropriate.
+* Make sure clicking a submodule updates the same application state/route that is currently used when selecting that submodule from the expanded sidebar.
+
+Visual/UX expectation
+
+Think of the collapsed sidebar as:
+
+Top-level module
+├── Submodule A icon
+├── Submodule B icon
+├── Submodule C icon
+└── Submodule D icon
+
+The exact visual implementation can follow the application’s existing design language, but the hierarchy must be immediately understandable.
+
+Validation
+
+After implementation:
+
+1. Run the application and verify the iWidget is on the LEFT.
+2. Open a Job and click Run.
+    * Confirm the iWidget does not cover the Run button.
+    * Confirm it does not cover terminal/log content.
+3. Test the sidebar expanded state and confirm existing behavior is unchanged.
+4. Collapse the sidebar.
+5. Click Console.
+    * Confirm its submodule branch appears.
+    * Confirm every submodule has an appropriate icon.
+    * Confirm each submodule is clickable.
+6. Select another top-level module.
+    * Confirm the Console branch disappears.
+7. Select another module that has submodules.
+    * Confirm only that module’s submodule branch appears.
+8. Switch between submodules while the sidebar remains collapsed.
+    * Confirm the correct page/view loads each time.
+9. Confirm there are no console errors or broken routes.
+10. Do not modify unrelated functionality.
+
+Before finishing, briefly report:
+
+* Which files/components were changed
+* How the iWidget positioning was corrected
+* How collapsed submodule navigation was implemented
+* What validation/tests were performed
