@@ -1,0 +1,844 @@
+This is a NEW implementation task in an existing repository.
+
+IMPORTANT CONTEXT:
+Do not assume any context from previous conversations or previous coding-agent sessions. Inspect the current repository and existing implementation before making changes.
+
+The existing Pod Metrics functionality has already been updated to support per-user/per-session execution. Those changes are already present in the repository. DO NOT reimplement or redesign that work.
+
+Build the following new functionality on top of the current implementation.
+
+==================================================
+OBJECTIVE
+==================================================
+
+The existing Pod Metrics job is primarily used by the testing team to monitor live CPU and memory utilization while performing testing activities.
+
+We now want to make it useful for developers as well.
+
+Developers often need to answer:
+
+"Is this application currently consuming unusually high CPU or memory?"
+
+They generally do NOT need a continuously running monitoring session.
+
+Therefore, introduce two explicit monitoring modes:
+
+1. Snapshot
+2. Live Monitoring
+
+The user should choose the mode through a two-option segmented toggle:
+
+[ Snapshot ] [ Live Monitoring ]
+
+Do NOT use a dropdown for this. There are only two mutually exclusive modes.
+
+Snapshot should be the default mode.
+
+Opening the Pod Metrics page must NOT automatically trigger any metrics collection.
+
+==================================================
+IMPORTANT EXISTING BEHAVIOR
+==================================================
+
+The interactive Pod Metrics flow is:
+
+Application
+→ select supported Namespace
+→ select polling frequency
+→ collect metrics
+
+The interactive Pod Metrics job monitors ONLY the namespace selected by the user.
+
+It must NOT suddenly start collecting all namespaces.
+
+The recently added Insight Engine uses some of the same backend metrics logic but intentionally collects data across multiple/all namespaces for insight generation and restart-related analysis.
+
+DO NOT change, break, or restrict the Insight Engine's existing all-namespace behavior.
+
+Reuse the existing metrics collection logic wherever possible.
+
+==================================================
+1. SNAPSHOT MODE
+==================================================
+
+Snapshot is a one-time collection.
+
+Flow:
+
+Application
+→ Namespace
+→ Snapshot selected
+→ user clicks "Run Metrics"
+→ collect current metrics once
+→ display results
+→ collection finishes
+
+Do NOT start a persistent polling loop.
+
+Do NOT create a persistent live WebSocket monitoring session for Snapshot.
+
+Do NOT consume one of the active live monitoring session slots after the snapshot completes.
+
+Do NOT automatically execute Snapshot simply because the page is opened.
+
+The user must explicitly click:
+
+Run Metrics
+
+Snapshot represents the current point-in-time state of the selected application + namespace.
+
+==================================================
+2. LIVE MONITORING MODE
+==================================================
+
+Live Monitoring should retain the existing live metrics behavior.
+
+Flow:
+
+Application
+→ Namespace
+→ frequency
+→ Live Monitoring
+→ Start Live Monitoring
+→ repeated metrics collection
+→ existing WebSocket live updates
+→ user manually stops it
+
+Use the existing WebSocket implementation.
+
+Do not create a second live-streaming architecture.
+
+The existing multi-user/session isolation already implemented in the repository must remain intact.
+
+==================================================
+3. ROLE-BASED LIVE SESSION TIMEOUT
+==================================================
+
+Live Monitoring now needs role-based automatic timeout.
+
+Developer:
+- maximum live monitoring duration = 10 minutes
+- timeout MUST be enforced by the backend
+- do not rely only on a frontend timer
+
+Tester:
+- no automatic duration timeout
+- can continue until manually stopped
+
+Other authorized roles:
+- no automatic duration timeout unless an existing application policy explicitly requires otherwise
+
+The developer UI should clearly show the remaining time.
+
+Example:
+
+Live Monitoring
+Running · 07:32 remaining
+
+When the 10-minute limit is reached:
+
+- stop the metrics session cleanly
+- terminate associated collection processes
+- close the WebSocket appropriately
+- release the active session slot
+- persist the correct final status
+- clearly notify the user why the session stopped
+
+Example:
+
+"Live monitoring stopped: 10-minute developer session limit reached."
+
+Do NOT silently stop the session.
+
+The backend must remain the source of truth for the timeout.
+
+==================================================
+4. ACTIVE SESSION LIMIT
+==================================================
+
+The existing multi-user work introduced:
+
+MAX_ACTIVE_METRICS_SESSIONS = 10
+
+Keep that behavior.
+
+Snapshot requests must NOT count as active long-running metrics sessions after they complete.
+
+Only active Live Monitoring sessions count toward the limit.
+
+Do not change the limit as part of this task.
+
+Do not allow Snapshot to accidentally consume a live-session slot.
+
+==================================================
+5. SNAPSHOT RESULTS UI
+==================================================
+
+Snapshot should provide more useful diagnostic information than simply CPU and memory.
+
+The purpose is:
+
+"What is happening with this application's pods in this namespace right now?"
+
+The main result should be a clean pod-level table.
+
+Recommended columns:
+
+Pod
+Status
+Ready
+CPU
+Memory
+Restarts
+Age
+
+Do not make the table excessively wide.
+
+==================================================
+6. CPU DISPLAY
+==================================================
+
+Combine CPU usage and CPU limit into ONE column.
+
+Do NOT create separate columns for:
+
+CPU Usage
+CPU Limit
+
+Instead display:
+
+CPU
+
+0.24 / 0.50 cores
+████████░░░░ 48%
+
+Meaning:
+
+current usage / configured limit
+plus visual utilization percentage.
+
+Use CPU in cores.
+
+Examples:
+
+0.24 / 0.50 cores
+1.20 / 2.00 cores
+
+Do not expose raw Kubernetes values such as 240m in the primary table.
+
+Use sensible rounding.
+
+Utilization percentage:
+
+current usage / configured limit × 100
+
+IMPORTANT:
+This is utilization against the configured container/pod limit, not host CPU utilization.
+
+If no CPU limit is configured:
+
+- do not invent one
+- do not calculate a misleading percentage
+- display something appropriate such as "No limit" or "N/A"
+- keep the UI clean
+
+==================================================
+7. MEMORY DISPLAY
+==================================================
+
+Combine memory usage and memory limit into ONE column.
+
+Example:
+
+Memory
+
+0.51 / 1.00 GB
+█████░░░░░ 51%
+
+Meaning:
+
+current memory usage / configured memory limit
+plus visual utilization percentage.
+
+Display memory in GB.
+
+Examples:
+
+0.51 / 1.00 GB
+2.40 / 4.00 GB
+
+Convert raw Kubernetes units into a readable format.
+
+If no memory limit is configured:
+
+- do not invent one
+- do not calculate a misleading percentage
+- display "No limit" or "N/A"
+
+==================================================
+8. PROGRESS BAR DESIGN
+==================================================
+
+Use a compact visual progress indicator for CPU and memory utilization.
+
+For an active/healthy pod, use the application's existing semantic success/green styling.
+
+The progress bar should have:
+
+- subtle background track
+- filled utilization portion
+- darker green fill
+- readable percentage
+
+Example:
+
+CPU
+0.24 / 0.50 cores
+████████░░░░ 48%
+
+Memory
+0.51 / 1.00 GB
+█████░░░░░░ 51%
+
+Keep the design visually pleasant and consistent with the existing dark theme.
+
+Do not introduce arbitrary colors if the application already has a theme/design system.
+
+Reuse existing semantic colors where possible.
+
+==================================================
+9. DOWN / FAILED / UNAVAILABLE PODS
+==================================================
+
+Do NOT display a failed/unavailable pod as simply:
+
+0%
+
+That would be misleading.
+
+If metrics cannot be obtained because the pod is down, failed, unavailable, or the query timed out:
+
+Show something such as:
+
+Unavailable
+░░░░░░░░░░
+
+Use a red semantic status/empty indicator.
+
+The user must be able to distinguish:
+
+0% actual utilization
+
+from:
+
+metrics unavailable.
+
+Status should also clearly indicate the pod state.
+
+Example:
+
+Failed
+Pending
+Unknown
+Metrics unavailable
+
+Use readable text as well as color.
+
+==================================================
+10. MULTIPLE REPLICAS
+==================================================
+
+Each pod/replica must have its own row.
+
+Do NOT combine replicas into one row.
+
+Example:
+
+app-a-7d8f-abc
+app-a-7d8f-def
+app-a-7d8f-ghi
+
+Each row independently shows:
+
+- status
+- readiness
+- CPU
+- memory
+- restarts
+- age
+
+Use the actual Kubernetes pod name as the authoritative identifier.
+
+This is important because different replicas can have different resource utilization, readiness, and restart counts.
+
+==================================================
+11. SIDECAR CONTAINERS
+==================================================
+
+Keep the primary table at POD level.
+
+Do NOT create a separate top-level table row for every sidecar.
+
+If a pod contains multiple containers, make the pod row expandable.
+
+Example:
+
+app-a-7d8f-abc
+3 containers ▼
+
+When expanded, show container-level details:
+
+Container
+CPU usage / limit
+Memory usage / limit
+Status/readiness
+
+Example:
+
+application
+0.20 / 0.40 cores
+0.42 / 0.80 GB
+Running
+
+envoy
+0.03 / 0.10 cores
+0.08 / 0.20 GB
+Running
+
+logging-sidecar
+0.01 / 0.05 cores
+0.03 / 0.10 GB
+Running
+
+Reuse existing container-level information if it is already available.
+
+Do not introduce expensive new collection logic solely for this visualization if the required data already exists.
+
+==================================================
+12. POD STATUS / HEALTH
+==================================================
+
+Use compact status pills/indicators.
+
+Examples:
+
+Running → success/green
+Pending → warning
+Failed → error/red
+Unknown → neutral/error
+
+Ready should be clearly displayed:
+
+1/1
+0/1
+2/2
+
+Restarts should be visible.
+
+Pod age should be displayed in a human-readable form.
+
+Do not rely on color alone.
+
+==================================================
+13. EXPANDABLE POD DETAILS
+==================================================
+
+If compatible with the current UI architecture, allow a pod row to expand for additional details.
+
+Useful details include:
+
+- containers
+- container status
+- CPU usage
+- CPU limit
+- memory usage
+- memory limit
+- node name
+- namespace
+- restart count
+- readiness
+
+Keep the primary table compact.
+
+Do NOT turn this into the Insight Engine.
+
+Do NOT add:
+
+- historical trend analysis
+- anomaly scoring
+- recommendations
+- cross-namespace analysis
+- predictive analysis
+- additional analytics
+
+This is a current-state diagnostic view.
+
+==================================================
+14. SAME UI FOR SNAPSHOT AND LIVE
+==================================================
+
+This is an important architectural requirement.
+
+Build ONE reusable Pod Metrics Results component/data model.
+
+Do NOT create two unrelated implementations such as:
+
+SnapshotTable
+LiveMetricsTable
+
+Instead:
+
+Pod Metrics Results
+       │
+       ├── Snapshot data source
+       │
+       └── Live WebSocket data source
+
+Both must render the same table/component.
+
+Snapshot:
+
+one dataset
+→ render table
+
+Live:
+
+WebSocket sends updates
+→ update the same table
+
+Therefore:
+
+- same pod rows
+- same CPU display
+- same memory display
+- same progress bars
+- same status pills
+- same expandable container details
+- same error handling
+
+Only the data delivery mechanism differs.
+
+==================================================
+15. WEBSOCKET
+==================================================
+
+Do not misunderstand the role of WebSocket.
+
+WebSocket is only the transport mechanism for live updates.
+
+It does NOT limit what the UI can display.
+
+The frontend can render:
+
+- tables
+- status pills
+- progress bars
+- expandable rows
+- error states
+- percentages
+
+from WebSocket data.
+
+For Snapshot:
+
+Use the existing appropriate one-time request/response mechanism.
+
+For Live:
+
+Continue using the existing WebSocket.
+
+Do not create another WebSocket architecture.
+
+==================================================
+16. ERROR HANDLING
+==================================================
+
+Snapshot should support partial failures.
+
+Example:
+
+Pod A → metrics available
+Pod B → metrics available
+Pod C → metrics timeout
+Pod D → metrics available
+
+Do NOT unnecessarily fail the entire snapshot because one pod failed.
+
+Show the affected pod clearly.
+
+Example:
+
+Status:
+Metrics unavailable
+
+Reason:
+Request timed out
+
+If the entire snapshot fails, show a clear user-facing error.
+
+Do not expose raw stack traces to normal users.
+
+Live mode should continue using the existing per-session error handling.
+
+==================================================
+17. SHARED DASHBOARD CACHE
+==================================================
+
+Do NOT allow personal Snapshot or Live Monitoring sessions to overwrite the existing shared dashboard cache.
+
+Existing scheduled/system jobs must continue using the shared dashboard cache.
+
+The intended separation is:
+
+Scheduled/system jobs
+→ shared dashboard cache
+→ shared dashboard
+
+Personal interactive metrics
+→ private session/result
+→ current user's UI
+
+Do not redesign the entire dashboard cache.
+
+==================================================
+18. HISTORY
+==================================================
+
+History has already been handled by the previous implementation.
+
+Do NOT redesign the existing application-scoped history.
+
+It already:
+
+- remains scoped to the selected application
+- supports multiple namespaces
+- has been expanded from 5 to 20 runs
+- contains the existing triggered_by/user information
+
+Preserve this behavior.
+
+Do not create another history system for Snapshot/Live unless absolutely required by the current architecture.
+
+==================================================
+19. MULTI-USER SESSION BEHAVIOR
+==================================================
+
+The previous implementation has already introduced per-user/per-session execution.
+
+Preserve that implementation.
+
+Do NOT revert to application-global locking.
+
+Examples that must continue to work:
+
+User A → App A / dev → Live
+User B → App A / dev → Live
+User C → App A / qa → Live
+
+All must be independently accessible.
+
+Stopping User A must not stop User B or C.
+
+Each user's WebSocket must receive only that user's session data.
+
+Do not reimplement this architecture unless inspection proves the current implementation is incomplete or broken.
+
+==================================================
+20. ROLE HANDLING
+==================================================
+
+Do not create a separate "Developer Metrics Job."
+
+The same Pod Metrics implementation should serve all authorized users.
+
+The difference is:
+
+Snapshot:
+same behavior for everyone.
+
+Live:
+developer → maximum 10 minutes
+tester → no automatic timeout
+other authorized roles → no automatic timeout unless existing policy says otherwise.
+
+==================================================
+21. UI FLOW
+==================================================
+
+Recommended structure:
+
+Application
+[ Application A ▼ ]
+
+Namespace
+[ dev ▼ ]
+
+Mode
+[ Snapshot ] [ Live Monitoring ]
+
+Then:
+
+Snapshot selected:
+
+[ Run Metrics ]
+
+Live selected:
+
+[ Start Live Monitoring ]
+
+Do not automatically start anything when the page is opened.
+
+For Snapshot:
+
+Run Metrics
+→ collect once
+→ display table
+→ finish
+
+For Live:
+
+Start Live Monitoring
+→ start session
+→ WebSocket updates
+→ user can Stop Monitoring
+
+For developer Live:
+
+Start Live Monitoring
+→ countdown visible
+→ automatically stops at 10 minutes
+→ clear explanation displayed
+
+==================================================
+22. EXISTING DARK THEME
+==================================================
+
+The application already has an established dark theme.
+
+Use the existing theme/design system.
+
+Do not introduce a completely new visual language.
+
+The table should be compact, readable, and visually pleasant.
+
+Progress bars, status pills, expandable rows, and error states should fit naturally into the existing console.
+
+==================================================
+23. PERFORMANCE / RESOURCE BEHAVIOR
+==================================================
+
+Snapshot must be finite:
+
+collect once
+→ return
+→ finish
+
+Live is persistent:
+
+collect
+→ wait polling interval
+→ collect
+→ stream
+→ repeat
+
+Do not accidentally turn Snapshot into a persistent polling process.
+
+Do not let Snapshot consume an active live-session slot after it completes.
+
+Do not increase polling frequency or introduce additional continuous collection.
+
+==================================================
+24. DO NOT MODIFY UNRELATED FUNCTIONALITY
+==================================================
+
+Do not change or break:
+
+- Insight Engine
+- all-namespace Insight Engine collection
+- scheduled jobs
+- Tenant Utilization job
+- Pod Status job
+- existing dashboard behavior
+- existing authentication
+- existing user/session architecture
+- existing WebSocket infrastructure
+- existing metrics calculation logic
+- existing application/job infrastructure
+
+Reuse existing functionality wherever possible.
+
+==================================================
+25. FIRST ASSESS, THEN IMPLEMENT
+==================================================
+
+Before making code changes, inspect the current repository and provide a concise implementation-impact assessment.
+
+Specifically identify:
+
+1. Current Pod Metrics frontend component/page.
+2. Current backend Pod Metrics execution path.
+3. Existing metrics data structure.
+4. Existing CPU/memory fields.
+5. Existing pod status/readiness/restart/age fields.
+6. Whether container-level metrics already exist.
+7. How resource limits are currently obtained.
+8. Current namespace handling.
+9. Existing live WebSocket data format.
+10. Best existing mechanism for a one-time Snapshot request.
+11. Existing reusable UI components that should be used.
+12. Where role information is available for enforcing the 10-minute developer timeout.
+13. Where the backend should enforce the developer timeout.
+14. Any risks or gaps discovered.
+
+Do not make broad changes before understanding the existing implementation.
+
+After the assessment, implement the feature.
+
+==================================================
+26. VERIFICATION
+==================================================
+
+After implementation, verify all of the following:
+
+1. Opening the Pod Metrics page does not automatically execute a metrics request.
+2. Snapshot is the default mode.
+3. Snapshot requires explicit Run Metrics.
+4. Snapshot performs one collection and finishes.
+5. Snapshot does not create a persistent live session.
+6. Snapshot does not consume an active live-session slot after completion.
+7. Snapshot only collects the selected application + selected namespace.
+8. Live Monitoring retains the existing 5-second/default polling behavior.
+9. Live Monitoring uses the existing WebSocket.
+10. Snapshot and Live use the same results table/component.
+11. Multiple replicas appear as separate pod rows.
+12. Sidecars are inspectable through expandable pod details.
+13. CPU displays current usage / limit in cores.
+14. Memory displays current usage / limit in GB.
+15. CPU utilization percentage is displayed visually with a progress bar.
+16. Memory utilization percentage is displayed visually with a progress bar.
+17. Down/unavailable metrics are clearly distinguished from 0% utilization.
+18. Missing limits do not produce misleading percentages.
+19. Pod status and readiness are visible.
+20. Restart count and pod age are visible.
+21. Partial pod metric failures do not unnecessarily fail the entire snapshot.
+22. Developer Live sessions are automatically stopped after 10 minutes.
+23. The 10-minute developer timeout is enforced server-side.
+24. Tester Live sessions can continue until manually stopped.
+25. Other authorized roles retain the intended unlimited behavior.
+26. Automatic developer timeout releases the active-session slot.
+27. Personal metrics do not modify shared dashboard cache.
+28. Existing multi-user session isolation remains intact.
+29. User A cannot see or stop User B's live session.
+30. Insight Engine all-namespace behavior remains unchanged.
+31. Existing application history remains unchanged.
+32. No unrelated jobs or functionality are modified.
+
+Keep the implementation focused.
+
+Do not perform unnecessary refactoring.
+
+Do not create duplicate metrics collectors.
+
+Do not create duplicate Snapshot and Live UI implementations.
+
+First understand the existing repository, then implement the smallest clean change that satisfies all requirements above.
