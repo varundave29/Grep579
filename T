@@ -1,0 +1,112 @@
+I want to make a focused change to the running-job viewing behavior. Do not modify the diagnostic/audit logging work you are currently doing; this is a separate task.
+
+First inspect the current implementation of the Pod Metrics Live Monitoring job, the Running Jobs/i-widget flow, the existing History/report-view layout, and the current RBAC/session authorization logic. Do not assume the implementation details below; use the existing architecture and make the smallest safe change.
+
+Current requirement:
+
+A running job should not be visible only to the session/user that originally triggered it.
+
+For any running job:
+
+1. The user who triggered the job can view it.
+2. Any other user who has the required RBAC access to the corresponding Application + Job can also view it.
+3. An admin can view any running job.
+4. A user without the required RBAC access must not be able to view or open that job.
+
+Separate VIEW permission from STOP permission:
+
+- The original job owner can view and stop their own running job.
+- An admin can view and stop any running job.
+- Another RBAC-authorized user can view the running job, but must NOT have a Stop action.
+- RBAC permission to view/access a job must not automatically grant permission to stop someone else's running job.
+
+Most importantly, preserve the existing session isolation. A running job may still belong to the session/user that created it, but that session ownership must not prevent another authorized user or admin from viewing the running job.
+
+### Reuse the existing History view/Close pattern
+
+The screenshot/current UI already has an established pattern for viewing a historical Pod Metrics report:
+
+History → open a specific run → report/detail layout → existing Close button → return/close the report view.
+
+I want the running-job view to follow this same pattern rather than introducing a brand-new Exit button or a second navigation mechanism.
+
+When a user opens a running job from the Running Jobs/i-widget:
+
+- Open the same or appropriately reusable report/detail layout used for viewing a historical run, wherever the existing architecture allows.
+- Keep the existing Close button/navigation pattern.
+- The Close action in this context must mean only "leave/close the current job view".
+- Closing the view must NOT stop, cancel, terminate, or otherwise modify the underlying running job.
+- If the current Close button can safely be reused with context-aware navigation, prefer that over creating another button.
+- Do not break the existing History behavior: when a user opens an older historical run, its current Download Report and Close behavior must remain unchanged.
+
+The important distinction is:
+
+VIEWING/OPENING/CLOSING THE UI
+    !=
+STOPPING/CANCELLING THE JOB
+
+For example:
+
+User A starts a live monitoring job.
+
+User B has RBAC access to that Application + Job.
+
+User B should be able to:
+
+Running Jobs → open User A's running job → view the live job → Close the view
+
+After User B clicks Close:
+
+- User B leaves the job view.
+- The underlying job continues running.
+- User A is unaffected.
+- Admin is unaffected.
+- No cancellation API should be triggered merely because User B closed/navigated away from the view.
+
+Likewise, if an admin opens User A's running job, the admin should see the Stop control as well as the existing Close behavior.
+
+Please pay particular attention to the current WebSocket/subscription lifecycle. Do not equate "viewer closed the UI" or "viewer navigated away" with "the job owner disconnected and therefore the job should be cancelled." The current multi-user/session architecture must continue to work correctly.
+
+Before changing anything:
+
+1. Trace how Running Jobs are currently discovered and filtered.
+2. Trace how the selected job is opened from the i-widget.
+3. Trace the existing History report/detail layout and Close button behavior.
+4. Trace the current RBAC checks for Application + Job access.
+5. Trace the current Stop/cancellation authorization.
+6. Trace what happens to the WebSocket/session when the detail view is closed.
+7. Identify the smallest central change that gives authorized users view access without weakening stop authorization or session isolation.
+
+Do not create a parallel RBAC system.
+Do not duplicate the History UI unnecessarily.
+Do not redesign the job lifecycle.
+Do not change the existing Snapshot/Live behavior.
+Do not modify the diagnostic logging implementation from the other task.
+
+After implementation, verify these scenarios:
+
+A. Owner opens own running job
+   → can view
+   → sees Stop + existing Close behavior.
+
+B. Another RBAC-authorized user opens the same running job
+   → can view
+   → does NOT see Stop
+   → can Close the view
+   → underlying job continues running.
+
+C. Admin opens the same running job
+   → can view
+   → sees Stop + Close
+   → Stop actually cancels the job.
+
+D. User without Application + Job RBAC access
+   → cannot open/view the job.
+
+E. Historical run opened from History
+   → existing report layout, Download Report and Close behavior remain unchanged.
+
+F. Closing a running-job view
+   → must not call the job cancellation/stop path merely because the viewer closed the UI.
+
+Please make the implementation as small and localized as possible, reuse existing components and authorization mechanisms wherever possible, and explain afterward which existing components/paths were reused and exactly how the view-vs-stop authorization now works.
