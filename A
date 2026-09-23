@@ -1,0 +1,21 @@
+Restore the pod visualization filter that existed in the previous Pod Metrics UI but was lost during the recent Snapshot/Live refactor.
+
+Requirements:
+1. Inspect the previous implementation/history and current code to determine whether the pod visibility filter already exists somewhere. Reuse it if possible; do not duplicate the logic.
+2. In Live Monitoring, restore the compact pod filter/list shown above the visualizations, containing all captured pods.
+3. Each pod should have a selectable checkbox/toggle:
+   - Selected = its CPU/Memory visualization is shown.
+   - Unselected = its visualization is hidden.
+4. This is ONLY a frontend visualization filter. It must NOT:
+   - stop metric collection
+   - remove the pod from the WebSocket/live data
+   - affect the captured dataset
+   - affect the generated report
+5. The report must continue to contain all captured pods regardless of which pods are hidden in the UI.
+6. Keep the existing Snapshot vs Live separation, session persistence, report/download logic, max-session handling, and developer timeout unchanged.
+7. Do not modify Insight Engine or unrelated job logic.
+8. Preserve the existing UI/theme style and keep the filter compact so it does not consume unnecessary dashboard space.
+9. Verify that changing the filter only changes visualization visibility and that deselected pods reappear immediately when selected again.
+10. Verify both Live Monitoring and the generated report still contain the complete pod dataset.
+
+Use the existing pod identifiers/data model rather than introducing a second pod-selection model.
