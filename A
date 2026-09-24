@@ -1,0 +1,452 @@
+We have already implemented the Kubernetes Log Streamer functionality in this application.
+
+This is a NEW session. Do not assume the previous implementation is incomplete or rebuild the feature from scratch.
+
+First inspect the existing Kubernetes Log Streamer implementation, its routes, components, state management, backend APIs, WebSocket/session handling, and the existing Pega Log Streamer UI. Understand how the current implementation works before making changes.
+
+The core functionality is already implemented. The goal of this task is to fix the current UI flow, remove confusing intermediate controls, and make the Kubernetes Log Streamer consistent with the existing application's design system.
+
+IMPORTANT:
+- Preserve all existing backend functionality unless a small change is required to support the corrected UI flow.
+- Do not rewrite the Kubernetes Log Streamer architecture.
+- Do not modify or break the Pega Log Streamer.
+- Do not introduce new frameworks or libraries.
+- Reuse the application's existing UI components/design patterns wherever possible.
+- Use the Pega Log Streamer controls, especially its pill-shaped selectors, as the visual reference.
+- Keep the implementation lightweight and professional.
+- Do not add excessive animations.
+- Do not remove existing RBAC integration.
+- Preserve existing application switching and deep-link routing.
+
+==================================================
+1. REMOVE THE PEGA/KUBERNETES TAB SWITCHER
+==================================================
+
+Currently, when opening the Log Streamer module, the main content area shows a tab switcher:
+
+- Pega Log Streamer
+- Kubernetes Log Streamer
+
+I do NOT want this.
+
+Pega Log Streamer and Kubernetes Log Streamer should be separate sub-modules in the application's existing LEFT SIDEBAR / HAMBURGER MENU.
+
+Expected behavior:
+
+- Clicking "Pega Log Streamer" in the left navigation opens only the Pega Log Streamer.
+- Clicking "Kubernetes Log Streamer" opens only the Kubernetes Log Streamer.
+- There should be no Pega/Kubernetes tab switcher inside the main Log Streamer page.
+
+Do not duplicate navigation controls inside the page.
+
+Preserve the existing route/deep-link behavior where applicable. The change should be implemented cleanly through the application's existing navigation structure.
+
+==================================================
+2. FIX APPLICATION SWITCH → NAMESPACE
+==================================================
+
+There is currently a state synchronization bug.
+
+When the user changes the application from the application's global header:
+
+Application A
+→ switch to Application B
+
+the Kubernetes Log Streamer namespace does not immediately update.
+
+However, if the browser is manually refreshed, the correct namespace for Application B appears.
+
+This proves that the correct namespace is already available, but the Kubernetes Log Streamer is not reacting correctly to the application context change.
+
+Fix this properly.
+
+Expected behavior:
+
+1. User is viewing Application A.
+2. Kubernetes Log Streamer shows Application A's namespace.
+3. User changes the application from the global application selector.
+4. Kubernetes Log Streamer immediately updates to Application B's namespace.
+5. No browser refresh should be required.
+
+Make sure stale state from the previous application is not retained.
+
+If an active discovery/session belongs to the previous application, handle that state safely according to the existing session lifecycle rather than displaying data from the old application under the new application.
+
+Do not hardcode namespaces.
+
+==================================================
+3. REDESIGN THE NAMESPACE SELECTOR
+==================================================
+
+The current namespace dropdown looks like a basic browser/old-style select control.
+
+The application uses a consistent modern pill-shaped UI.
+
+Update the Kubernetes Log Streamer namespace selector to match the application's existing design system.
+
+Use the Pega Log Streamer selector/dropdown as the visual reference.
+
+Requirements:
+
+- Pill-shaped
+- Same general height, spacing, border radius and visual language as existing selectors
+- Consistent dark/light theme behavior
+- Consistent hover/focus/selected states
+- Do not introduce a visually different control style
+
+Do not create a new design language specifically for Kubernetes Log Streamer.
+
+==================================================
+4. REMOVE "INCLUDE PREVIOUS LOGS" FROM DISCOVER
+==================================================
+
+Currently the Discover section contains:
+
+- Namespace
+- Discover
+- Include previous logs
+
+Remove the "Include previous logs" checkbox from this initial discovery area.
+
+The initial Discover flow should be simple:
+
+[Namespace selector] [Discover]
+
+The user should not have to make a historical-log decision before discovering pods.
+
+The intended behavior is:
+
+- Discover pods first.
+- After selecting/streaming a pod, the current container's historical/static logs should be available by default.
+- Previous container logs should be an explicit option in the appropriate log/session view if that functionality is already implemented.
+
+Do not interpret "historical logs" and "previous container logs" as the same thing.
+
+Historical logs for the current container are expected as part of the initial log view.
+
+"Previous container" logs should remain an explicit additional option.
+
+==================================================
+5. FIX THE STREAM TRANSITION / PAGE LAYOUT
+==================================================
+
+This is currently the biggest UI problem.
+
+When the user clicks "Stream" for a pod, the log streaming UI is appearing underneath the pod table.
+
+That is incorrect.
+
+The Stream action should transition the user from the pod-discovery view into the log-streaming view.
+
+Expected flow:
+
+DISCOVERY VIEW
+
+Namespace
+Discover
+Pod table
+...
+Stream button
+
+User clicks Stream.
+
+Then:
+
+- The discovery/table view should transition away.
+- Namespace/discovery controls and the pod table should no longer remain above the log viewer.
+- The application should transition into the Kubernetes Log Streamer log view.
+- The log viewer should occupy the main content area.
+- The selected pod/container should be clearly represented.
+- Historical logs should begin loading/displaying automatically.
+- The session should be created/opened internally.
+
+Use a subtle professional transition, for example a short horizontal/left-to-right page transition or push-style transition.
+
+Do NOT use an excessive animation.
+
+The important requirement is that this should feel like:
+
+Pod Discovery
+→ transition
+→ Log Streamer
+
+rather than:
+
+Pod Discovery
++
+Log Streamer appended underneath it.
+
+The existing log streamer should become the active main view.
+
+==================================================
+6. REMOVE "OPEN SESSION" AS A USER-FACING STEP
+==================================================
+
+IMPORTANT ARCHITECTURAL CONTEXT:
+
+The backend/session architecture intentionally uses isolated sessions.
+
+A session is responsible for things such as:
+
+- Per-user/session isolation
+- Disk-backed temporary workspace
+- Session state
+- WebSocket/live streaming lifecycle
+- Cleanup
+- Supporting multiple concurrent users
+- Maximum active session handling
+- Stale/orphan cleanup
+
+However, the user should NOT have to manually understand or operate this lifecycle.
+
+Currently, after clicking Stream, the UI exposes:
+
+Open Session
+Go Live
+Terminate Session
+
+This makes the workflow confusing.
+
+Change the UI so that clicking "Stream" automatically creates/opens the required session internally.
+
+The user should NOT have to click "Open Session" after clicking "Stream".
+
+Expected behavior:
+
+User clicks:
+
+Stream
+
+↓
+
+Backend/session is initialized automatically
+
+↓
+
+Log streaming view opens
+
+↓
+
+Current container historical/static logs are loaded/displayed
+
+↓
+
+User can optionally click:
+
+Go Live
+
+The backend session architecture must remain intact.
+
+Only remove the unnecessary user-facing Open Session step.
+
+Do NOT remove the underlying session mechanism.
+
+==================================================
+7. CLARIFY GO LIVE BEHAVIOR
+==================================================
+
+The intended behavior is:
+
+Historical/static logs are shown first.
+
+Live streaming is explicitly started by the user through "Go Live".
+
+Do not automatically start a continuous WebSocket/live stream merely because the user clicked Stream.
+
+"Go Live" should remain an explicit action.
+
+However, the current visual treatment of Go Live should be reviewed.
+
+It should look like an intentional primary action, but do not make it visually dominant just because it is blue.
+
+Follow the application's existing button hierarchy and design system.
+
+If there is already an established primary/secondary button convention, reuse it.
+
+==================================================
+8. MAKE TERMINATE SESSION CLEAR AND DANGEROUS-ACTION APPROPRIATE
+==================================================
+
+Terminate Session is currently not visually prominent enough.
+
+This action actually terminates the session and triggers cleanup.
+
+Make it clearly recognizable as a destructive/termination action.
+
+Use the same visual language as existing Stop/Terminate/Destructive controls elsewhere in the application.
+
+A red/destructive treatment is appropriate if that matches the existing application's conventions.
+
+The user should immediately understand:
+
+"Terminate Session" = permanently end this streaming session and clean up its resources.
+
+Do not make it look like an ordinary secondary button.
+
+Do not change the underlying cleanup behavior.
+
+==================================================
+9. CONTAINER DROPDOWN
+==================================================
+
+The container selector currently looks like another basic old-style dropdown.
+
+Replace it with the same pill-shaped selector style used by the Pega Log Streamer.
+
+Requirements:
+
+- Same pill shape
+- Same general dimensions
+- Same typography
+- Same spacing
+- Same dark/light theme behavior
+- Same interaction states
+- Consistent with the rest of the application
+
+Do not create a separate visual style for Kubernetes Log Streamer.
+
+==================================================
+10. LOG VIEW MUST ACTUALLY BE VISIBLE
+==================================================
+
+Currently the log UI appears underneath the pod table, which makes it impossible to properly test the logging functionality.
+
+After the Stream transition is fixed, verify that:
+
+- The log terminal/view is visible in the main content area.
+- Historical logs can be seen immediately.
+- The log area has sufficient vertical space.
+- Search/filter controls are visible.
+- The selected pod/container context is visible.
+- Go Live is accessible.
+- Terminate Session is accessible.
+
+Do not allow the discovery table to consume the vertical space above the active log viewer.
+
+The log content should be the primary visual focus once streaming mode is entered.
+
+==================================================
+11. CONSISTENT UI DESIGN
+==================================================
+
+Review the entire Kubernetes Log Streamer screen for inconsistent controls.
+
+The screenshot currently shows several controls that look like basic browser/default UI while the rest of the application uses a modern pill-shaped design.
+
+Bring the following into visual consistency:
+
+- Namespace selector
+- Container selector
+- Buttons where appropriate
+- Dropdowns
+- Checkboxes/toggles where applicable
+- Icons
+- Search controls
+- Filter controls
+- Session controls
+
+Use existing application components/styles wherever possible.
+
+Do not blindly convert every component into a pill if that conflicts with the application's established design.
+
+The goal is visual consistency, not decoration.
+
+Support both dark and light themes.
+
+==================================================
+12. DO NOT CHANGE THE CORE FUNCTIONAL DESIGN
+==================================================
+
+Preserve these existing architectural decisions:
+
+- Kubernetes Python client
+- Existing application authentication/session infrastructure
+- Application-specific namespace
+- Pod discovery
+- Pod/container selection
+- Historical/static current-container logs
+- Explicit live streaming through WebSocket
+- Previous-container logs as an explicit capability
+- Independent user sessions
+- Disk-backed per-session workspace
+- Maximum active-session handling
+- Startup/orphan cleanup
+- Stale session cleanup
+- Full cleanup when session is terminated
+- Existing search/filter functionality
+- Existing RBAC integration
+
+Do not add OpenTelemetry, Elasticsearch, Kafka, or another external logging platform.
+
+Keep this lightweight.
+
+==================================================
+13. BEFORE MODIFYING CODE
+==================================================
+
+First inspect and understand:
+
+1. Current Kubernetes Log Streamer frontend components
+2. Current route structure
+3. Application-switch state/context
+4. Namespace resolution logic
+5. Existing Pega Log Streamer selector components
+6. Existing session API/backend flow
+7. WebSocket lifecycle
+8. Discovery → Stream transition
+9. Existing sidebar navigation
+10. Existing design-system components/styles
+
+Then implement the changes with the smallest clean set of modifications.
+
+Do not create duplicate components when an existing application component can be reused.
+
+==================================================
+14. ACCEPTANCE CRITERIA
+==================================================
+
+The implementation is complete only when all of the following are true:
+
+[ ] Pega Log Streamer and Kubernetes Log Streamer are separate left-sidebar sub-modules.
+
+[ ] No Pega/Kubernetes tab switcher remains inside the main Log Streamer screen.
+
+[ ] Switching applications from the global header immediately updates the Kubernetes namespace without browser refresh.
+
+[ ] Namespace selector uses the application's established pill-shaped design.
+
+[ ] Discover area contains only the namespace selector and Discover action.
+
+[ ] Include Previous Logs is removed from the initial Discover area.
+
+[ ] Clicking Stream transitions from Pod Discovery to the Log Streamer view.
+
+[ ] Pod table/discovery UI does not remain above the log viewer.
+
+[ ] The transition is subtle and professional, not overly animated.
+
+[ ] Clicking Stream automatically initializes the underlying session.
+
+[ ] Open Session is no longer required as a user-facing action.
+
+[ ] Current-container historical/static logs appear automatically after Stream.
+
+[ ] Go Live remains an explicit action for starting live WebSocket streaming.
+
+[ ] Container selector matches the Pega Log Streamer pill-shaped design.
+
+[ ] Terminate Session is visually recognizable as a destructive action.
+
+[ ] The log viewer occupies the primary available content area.
+
+[ ] Existing search/filter functionality remains intact.
+
+[ ] Dark and light themes remain visually consistent.
+
+[ ] Existing session cleanup behavior remains intact.
+
+[ ] Existing RBAC behavior remains intact.
+
+[ ] Pega Log Streamer behavior is unchanged.
+
+After implementation, run the relevant frontend/backend checks and report exactly what was changed and what was verified.
