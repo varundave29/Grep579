@@ -1,0 +1,113 @@
+Make the following two isolated UI/UX enhancements only for the existing Image Version job.
+
+Before making changes, inspect the existing Image Version job implementation and follow its current architecture, styling, data flow, and component patterns. Do not modify unrelated jobs or shared behavior unless absolutely required.
+
+1. Add URL hover popovers to existing hyperlinks
+
+The Image Version job already renders certain values as clickable hyperlinks. Keep the existing hyperlink behavior exactly as it is, including opening the destination in a new tab.
+
+Enhance the hyperlinks so that when the user hovers the mouse over any hyperlink, a small, clean popover/tooltip appears showing the actual URL represented by that hyperlink.
+
+Requirements:
+
+* Apply this wherever hyperlinks are currently rendered in the Image Version job.
+* The popover should display the complete actual URL.
+* It should appear on hover without requiring the user to click.
+* Clicking the hyperlink must continue to behave exactly as it does today.
+* Do not change the existing table structure or data.
+* Do not add popovers to the generated CSV.
+* Use the application’s existing tooltip/popover component or styling system if one already exists rather than introducing an unnecessary new UI dependency.
+* Make sure long URLs remain readable, using appropriate wrapping or scrolling if necessary.
+* The hover interaction should feel lightweight and should not interfere with normal table interaction.
+
+2. Add on-demand CSV download
+
+The Image Version job already displays its generated data in a table.
+
+Add a Download CSV action to the header area of the Image Version job, associated specifically with the generated table.
+
+Important behavior:
+
+* Do not generate a CSV automatically when the Image Version job runs.
+* Do not create or store a CSV artifact by default.
+* The table should continue to work exactly as it does today for users who only want to view the deployment information.
+* Only generate the CSV after the user explicitly clicks Download CSV.
+
+Button behavior
+
+Before clicking:
+
+* Show a compact Download CSV button in the job header.
+* Include a small, polished visual treatment/icon that clearly communicates CSV/download functionality.
+* Keep it consistent with the application’s existing UI and theme in both light and dark modes.
+
+When clicked:
+
+1. Disable the button or otherwise prevent duplicate clicks.
+2. Transition the button into a Generating CSV state.
+3. Show a subtle, polished animation indicating that the CSV is being generated.
+4. Generate the CSV from the currently displayed Image Version job data.
+5. Preserve all existing table columns and their values.
+6. After generation completes, transition the button into a Downloading state with an appropriate download animation/icon.
+7. Automatically trigger the browser download.
+8. After the download has been initiated/completed, return the button to its normal Download CSV state.
+9. Handle generation/download failures gracefully and restore the button so the user can retry.
+
+The interaction should feel like a deliberate state transition:
+
+Download CSV → Generating CSV → Downloading → Download CSV
+
+Do not make the animation excessive. It should feel polished and consistent with the existing application.
+
+CSV contents
+
+The CSV must contain all data currently represented by the Image Version table, preserving the existing columns and their order.
+
+For hyperlink fields:
+
+* Write the actual URL/value into the CSV.
+* Do not include the UI hover popover behavior in the CSV.
+* Do not replace the URL with shortened display text.
+* Do not introduce HTML or UI-specific markup into the CSV.
+
+The generated CSV should therefore be useful as a standalone data export.
+
+Important constraints
+
+* This is an isolated enhancement to the existing Image Version job.
+* Do not change the existing Image Version job’s API behavior, deployment logic, data retrieval logic, or table functionality.
+* Do not change other jobs.
+* Do not introduce automatic CSV generation.
+* Do not generate artifacts during normal job execution.
+* Do not add unnecessary dependencies if the existing frontend stack already provides suitable tooltip, animation, and download functionality.
+* Preserve the existing light and dark themes.
+* Preserve the current responsive behavior.
+* Reuse existing application components and styling conventions wherever possible.
+
+Validation
+
+After implementation, verify:
+
+1. Every existing Image Version hyperlink shows its actual URL on hover.
+2. Clicking those hyperlinks still opens the destination in a new tab.
+3. No CSV/artifact is generated during normal job execution.
+4. Download CSV appears only after the relevant table/job data is available.
+5. Clicking the button generates the CSV only on demand.
+6. The button visibly transitions through Generating CSV and Downloading.
+7. The browser automatically downloads the generated CSV.
+8. The CSV contains every table column and row with the correct values.
+9. Hyperlink columns contain the actual URLs.
+10. Repeated downloads work correctly.
+11. Duplicate clicks cannot trigger multiple simultaneous generations/downloads.
+12. Errors restore the button to a usable state.
+13. Both light and dark themes look correct.
+14. No existing Image Version functionality or unrelated job behavior is changed.
+
+Before modifying code, inspect the existing implementation and identify the exact components responsible for:
+
+* rendering the Image Version table,
+* rendering its hyperlinks,
+* rendering the job header/actions,
+* and handling client-side downloads.
+
+Implement the smallest clean change necessary.
