@@ -1,0 +1,258 @@
+We are considering introducing OpenAPI/Swagger into this application, but do not implement or modify anything yet.
+
+This is a read-only discovery and architecture analysis task.
+
+The goal is to understand the application’s existing backend capabilities, how the frontend communicates with the backend, how jobs are executed and tracked, and which parts of the application would genuinely benefit from being exposed as documented REST APIs through OpenAPI/Swagger.
+
+Important constraints
+
+* Do NOT add Swagger/OpenAPI dependencies.
+* Do NOT create new API endpoints.
+* Do NOT modify existing endpoints.
+* Do NOT change frontend code.
+* Do NOT refactor the job system.
+* Do NOT implement job cancellation.
+* Do NOT modify database schemas.
+* Do NOT modify configuration files.
+* Do NOT make any code changes at all.
+* Do not assume that an endpoint is needed simply because it would be convenient.
+* Base your analysis on the actual current codebase.
+
+We will use your findings in a later phase to design the API surface, and only after reviewing that design will we implement anything.
+
+1. Map the existing backend
+
+Inspect the backend thoroughly and identify:
+
+* FastAPI application entry points
+* Existing REST endpoints
+* HTTP methods
+* Endpoint paths
+* Request parameters and request bodies
+* Response structures
+* Error handling
+* Authentication/authorization, if any
+* Existing health/status endpoints
+* Existing WebSocket endpoints
+* Background tasks
+* Async tasks
+* Subprocess-based operations
+* Any internal service/API layers
+
+For each existing endpoint, explain what application functionality it supports and which frontend functionality appears to consume it.
+
+Do not just list decorators. Trace the implementation far enough to understand what the endpoint actually does.
+
+2. Map the frontend → backend communication
+
+Trace how the frontend communicates with the backend.
+
+Identify:
+
+* REST calls
+* WebSocket connections
+* Polling
+* Job submission
+* Job status retrieval
+* Job history retrieval
+* Log streaming
+* Metrics retrieval
+* Tenant utilization
+* Application information
+* Any other backend-driven functionality
+
+Create a clear mapping such as:
+
+Frontend feature → API/WebSocket → Backend function/service → Result
+
+Also identify places where the frontend appears to depend on internal backend behavior that is not represented by a clean API.
+
+3. Analyze the job architecture
+
+This is especially important.
+
+Find every significant job type currently implemented in the application.
+
+For each job, document:
+
+* Job name/type
+* What starts it
+* Whether it is synchronous, asynchronous, background-task based, subprocess based, etc.
+* How it receives parameters
+* Whether it has a unique job ID
+* How its state is tracked
+* Possible states
+* How progress is represented, if at all
+* Where results are stored
+* How errors are represented
+* How history is stored
+* Whether it currently supports cancellation
+* Whether cancellation would technically be possible
+* What process/task would actually need to be stopped
+
+Pay particular attention to the existing job manager/state management, if one exists.
+
+Do not design a new job manager yet. First document what exists.
+
+4. Identify runtime observability
+
+Determine what information the application can currently expose about its own runtime state.
+
+Look for things such as:
+
+* Backend health
+* Running jobs
+* Completed jobs
+* Failed jobs
+* Job history
+* Job duration
+* Job errors
+* Active log streams
+* Metrics
+* Application status
+* Tenant utilization
+* Database state
+* Connected clients/sessions
+* Background processes
+
+For each one, explain whether the information already exists somewhere in the application or would require new implementation to expose it cleanly.
+
+5. Identify potential OpenAPI/Swagger candidates
+
+Only after understanding the existing application, identify APIs that could genuinely be useful.
+
+Categorize them:
+
+A. Strong candidates
+
+APIs that would provide clear value for:
+
+* frontend functionality
+* manual troubleshooting
+* automated troubleshooting
+* future agent-based debugging
+* operational visibility
+
+B. Possible candidates
+
+APIs that may be useful but whose value is not yet clear.
+
+C. Do not expose
+
+Internal implementation details, sensitive operations, or functionality that should remain internal.
+
+For every proposed API, provide:
+
+* Suggested endpoint
+* HTTP method
+* Purpose
+* Existing functionality it represents
+* Whether equivalent functionality already exists
+* Why it would be useful
+* Whether it should be exposed through Swagger
+* Whether it could be useful to an automated coding/troubleshooting agent
+* Security considerations
+* Any implementation complexity
+
+Do NOT implement these APIs yet.
+
+6. Specifically investigate job cancellation
+
+We previously discussed adding cancellation/stop functionality for jobs.
+
+Do not implement it yet.
+
+Instead, determine whether the current architecture can support something conceptually like:
+
+POST /jobs/{job_id}/cancel
+
+For each job type, explain:
+
+* Whether it can be cancelled safely
+* What actually needs to be stopped
+* Whether it is a Python task, subprocess, thread, external operation, etc.
+* Whether cancellation is graceful or forceful
+* What happens to database/job state after cancellation
+* What happens if cancellation occurs while the job is writing results
+* Whether cancellation could accidentally terminate an unrelated process
+* Whether a generic cancellation mechanism is realistic or whether different job types require different cancellation strategies
+
+This analysis should help us decide whether cancellation belongs in a future API layer.
+
+7. Swagger/OpenAPI specifically
+
+Determine what FastAPI already provides today.
+
+Check whether OpenAPI and Swagger UI are already enabled by the current application configuration.
+
+If they are already available, document:
+
+* Existing Swagger UI URL/path
+* Existing OpenAPI JSON URL/path
+* Whether they expose useful information today
+* Whether they are enabled in local development only or other environments
+* Any configuration currently controlling them
+
+Do NOT enable or modify anything if they are currently disabled.
+
+8. Agent troubleshooting use case
+
+We are also considering whether a coding agent could use the application’s runtime APIs to troubleshoot issues.
+
+Analyze realistic workflows such as:
+
+Example:
+
+User reports:
+“Job 8472 is stuck.”
+
+Potential agent workflow:
+
+1. Query job status
+2. Inspect job metadata
+3. Inspect recent job activity/logs
+4. Determine whether the job is actually running
+5. Determine whether it is waiting, failed, or producing no output
+6. Recommend the next diagnostic action
+
+Identify which information the current application can already provide and which information would need new APIs.
+
+Do not assume the agent can access localhost automatically. Clearly distinguish between:
+
+* What an OpenAPI specification provides
+* What an HTTP endpoint provides
+* What the coding agent’s environment would need in order to actually call localhost
+* What would require explicit agent/tool access
+
+9. Produce the final report
+
+At the end, provide a structured report with these sections:
+
+1. Executive Summary
+2. Current Backend Architecture
+3. Existing REST APIs
+4. Existing WebSockets
+5. Frontend → Backend Communication Map
+6. Job Architecture
+7. Runtime/Operational Information Currently Available
+8. Existing Swagger/OpenAPI Status
+9. Recommended API Candidates
+10. APIs We Should NOT Add
+11. Job Cancellation Feasibility
+12. Potential Agent Troubleshooting Workflows
+13. Security Considerations
+14. Recommended Phase 2 API Design
+15. Open Questions / Areas Requiring Confirmation
+
+For the Phase 2 recommendation, keep the scope intentionally small.
+
+We want to avoid turning this into a large API redesign. Recommend the minimum useful API surface that would give us meaningful value.
+
+Finally, clearly separate:
+
+* What already exists
+* What could be exposed with minimal effort
+* What requires new backend functionality
+* What is only a future possibility
+
+Again: this entire task is analysis only. Make zero code or configuration changes.
