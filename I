@@ -1,0 +1,860 @@
+We have already implemented the Kubernetes Log Streamer and completed one round of UI corrections.
+
+This is a NEW development session.
+
+Do NOT rebuild the Kubernetes Log Streamer from scratch.
+
+The core backend/session architecture already exists. The purpose of this task is to diagnose and fix the remaining application-switching, loading, log-rendering, streaming-performance, scrolling, and UI consistency problems.
+
+I have provided screenshots showing:
+
+1. Kubernetes Log Streamer pod discovery
+2. Kubernetes Log Streamer log/session view
+3. Pega Log Streamer, which should be treated as the existing reference implementation for log presentation and interaction patterns
+
+IMPORTANT:
+
+Do NOT use browser MCP, browser screenshot automation, or external visual-intelligence tooling.
+
+Instead:
+
+- Inspect the source code directly.
+- Inspect the existing frontend components.
+- Inspect the existing backend/session/WebSocket implementation.
+- Inspect the Pega Log Streamer implementation.
+- Compare the Kubernetes Log Streamer implementation against Pega wherever equivalent functionality already exists.
+- Reuse existing application components, utilities, CSS/design tokens, log formatting logic, scrolling behavior, filtering behavior, and interaction patterns where appropriate.
+- Do not duplicate functionality that already exists in Pega Log Streamer.
+- Do not introduce unnecessary new libraries or frameworks.
+
+The goal is not to make Kubernetes Log Streamer look vaguely similar to Pega.
+
+The goal is to understand why the existing application already solves these problems in Pega and apply the same established patterns to Kubernetes Log Streamer where technically appropriate.
+
+==================================================
+PHASE 1 — DIAGNOSE BEFORE CHANGING CODE
+==================================================
+
+Before modifying anything, inspect the current implementation and produce a concise diagnosis.
+
+Specifically inspect:
+
+1. Global application-switch state/context
+2. Route/path handling
+3. Kubernetes Log Streamer application/namespace state
+4. Namespace loading/effect dependencies
+5. Pod discovery API
+6. Stream/session creation API
+7. Static log retrieval
+8. Log formatting/parsing
+9. WebSocket initialization
+10. Go Live flow
+11. Stop Live flow
+12. Terminate Session flow
+13. Frontend log rendering
+14. Scroll management
+15. Search/filter implementation
+16. Auto-scroll implementation
+17. Pega Log Streamer equivalent implementation
+18. Existing shared UI components/design system
+
+Do not immediately patch symptoms.
+
+For each major issue below, identify the likely root cause first.
+
+==================================================
+ISSUE 1 — APPLICATION SWITCHING STILL DOES NOT UPDATE NAMESPACE
+==================================================
+
+This issue is NOT fixed yet.
+
+Example:
+
+Application A
+→ Kubernetes Log Streamer shows Namespace A
+
+Switch to Application B
+→ Kubernetes Log Streamer continues showing Namespace A
+
+Refresh browser
+→ Namespace B appears
+
+Even stranger:
+
+Application A
+→ B
+
+does not update.
+
+Then:
+
+B
+→ C
+
+sometimes causes B's namespace to appear.
+
+This strongly suggests that some state/effect/route dependency is stale or one application change is lagging behind the current application context.
+
+Do NOT solve this with:
+
+- browser refresh
+- setTimeout
+- arbitrary delay
+- forcing a full-page reload
+- hardcoded namespace mapping
+
+Find the actual source of the stale state.
+
+Inspect:
+
+- global application context/provider
+- selected application state
+- route parameters
+- pathname/query parameters
+- Kubernetes Log Streamer state
+- namespace state
+- useEffect/useMemo/useCallback dependencies
+- async namespace fetches
+- stale closures
+- race conditions between application changes
+- component mounting/unmounting behavior
+
+Expected behavior:
+
+Application A selected
+→ Namespace A
+
+Switch to B
+→ Namespace B immediately
+
+Switch to C
+→ Namespace C immediately
+
+No browser refresh.
+
+Also make sure stale discovery/session state from Application A cannot remain visible after switching to Application B.
+
+If an active Kubernetes log session exists when the application changes, handle it safely according to the existing session lifecycle. Do not leave an old application's logs displayed under the new application.
+
+==================================================
+ISSUE 2 — STREAM TRANSITION HAS A VISUAL GLITCH
+==================================================
+
+When clicking Stream on a pod, the UI currently appears to:
+
+- move/reposition
+- shift the table
+- move the mouse/pointer location
+- rearrange controls
+- then eventually display the log terminal
+
+This happens within a fraction of a second.
+
+Do NOT simply add a random animation duration.
+
+First determine what is actually happening.
+
+Inspect:
+
+- conditional rendering
+- layout changes
+- component mounting/unmounting
+- scroll position changes
+- focus changes
+- height calculations
+- auto-scroll initialization
+- loading-state transitions
+- state updates triggered by session creation
+- route changes
+- CSS transitions
+- DOM measurement/reflow
+
+The transition should be deliberate.
+
+Desired behavior:
+
+User clicks Stream.
+
+The clicked Stream button should immediately enter a loading state:
+
+[spinner/loading icon] Loading...
+
+The discovery view remains stable while the session/static log data is being prepared.
+
+Once the required initial static log data has successfully loaded and been formatted:
+
+1. Complete the loading state.
+2. Perform a short, professional transition.
+3. Replace the discovery view with the log-streaming view.
+4. Log viewer takes over the main content area.
+
+Do not transition halfway through loading.
+
+Do not show an intermediate broken layout.
+
+Do not let the pod table partially move away while the log viewer is appearing.
+
+The transition should feel intentional and stable.
+
+==================================================
+ISSUE 3 — STREAM BUTTON MUST SHOW REAL LOADING STATE
+==================================================
+
+When Stream is clicked:
+
+- Change the Stream button into a loading state.
+- Show a circular spinner/loading icon.
+- Prevent duplicate Stream clicks while the operation is in progress.
+- Keep the discovery screen stable during loading.
+
+The loading state should remain until the initial log session/view is actually ready.
+
+Do NOT use an arbitrary timeout such as:
+
+sleep(2)
+sleep(5)
+setTimeout(...)
+
+The loading state must be tied to the actual operation completing.
+
+If the initial request fails, return the button to its normal state and show the appropriate error.
+
+==================================================
+ISSUE 4 — DIAGNOSE THE 10–20 SECOND DELAYS
+==================================================
+
+There are currently noticeable delays:
+
+- Clicking Stream takes time before logs appear.
+- Clicking Go Live can take approximately 20 seconds before logs appear.
+- Stop Live/Terminate Session can also take approximately 10–20 seconds.
+
+Do NOT assume this is just a frontend animation problem.
+
+Instrument and trace the operation.
+
+For Stream, identify the time spent in:
+
+1. Session creation
+2. Workspace creation
+3. Kubernetes API request
+4. Pod/container validation
+5. Static log retrieval
+6. Log parsing/formatting
+7. Frontend state update
+8. DOM/log rendering
+
+For Go Live, identify:
+
+1. WebSocket connection creation
+2. Backend WebSocket handler startup
+3. Kubernetes log stream establishment
+4. First log event received
+5. Frontend WebSocket message handling
+
+For Stop Live:
+
+1. Frontend stop request
+2. WebSocket close
+3. Kubernetes stream termination
+4. backend cleanup
+
+For Terminate Session:
+
+1. session termination request
+2. WebSocket cleanup
+3. worker/task termination
+4. temporary workspace cleanup
+5. session state removal
+
+Find the actual bottleneck.
+
+Do not hide the delay with an animation.
+
+If a backend operation legitimately takes time, the UI should communicate that clearly.
+
+If the operation is unnecessarily slow, fix the underlying problem.
+
+==================================================
+ISSUE 5 — LOG FORMAT IS CURRENTLY WRONG
+==================================================
+
+This is one of the highest-priority issues.
+
+The Kubernetes Log Streamer currently displays a large block of logs where many entries appear visually combined into long/messy lines.
+
+The Pega Log Streamer already displays logs properly.
+
+Use Pega Log Streamer as the implementation reference.
+
+Inspect how Pega handles:
+
+- individual log entries
+- timestamps
+- log level
+- pod/source
+- message content
+- multiline messages
+- wrapping
+- metadata
+- spacing
+- separators
+- error/warning/info presentation
+- log row structure
+- scrolling
+
+Then determine why Kubernetes logs are currently being rendered as a raw text block rather than proper individual log entries.
+
+Do NOT merely add CSS such as word-wrap and call this fixed.
+
+The actual log parsing/rendering pipeline needs to be examined.
+
+The Kubernetes log stream may have a different raw format than Pega, so create/adapt the parser required for Kubernetes logs.
+
+But reuse the existing shared log-entry presentation where possible.
+
+==================================================
+ISSUE 6 — LOG ORDERING
+==================================================
+
+The log viewer must behave like a normal log viewer.
+
+Latest log entries should be at the BOTTOM.
+
+Older log entries should appear ABOVE them.
+
+When the initial static log set is loaded:
+
+Oldest
+↑
+...
+↓
+Newest
+
+The viewport should initially be positioned at the newest/latest logs at the bottom.
+
+Do not display the user at the beginning/top of the historical log list.
+
+This should work correctly for both:
+
+- static historical logs
+- live streaming logs
+
+Do not reverse the underlying log data unless the backend requires it.
+
+Prefer correct chronological ordering with the viewport positioned appropriately.
+
+==================================================
+ISSUE 7 — SCROLLBAR BEHAVIOR
+==================================================
+
+The vertical scrollbar should have the same polished behavior as the Pega Log Streamer.
+
+Desired behavior:
+
+- Do not keep a permanently visually prominent scrollbar.
+- Hide/minimize the scrollbar when the user is not interacting with the log area, according to the application's existing styling.
+- When the user moves over the log area and scrolling is needed, the scrollbar should become available/visible.
+- User must still be able to scroll and drag it normally.
+
+Do not break accessibility or scrolling functionality just to hide the scrollbar.
+
+Inspect the Pega implementation and reuse its established approach if available.
+
+==================================================
+ISSUE 8 — AUTO-SCROLL BEHAVIOR
+==================================================
+
+The Kubernetes viewer currently does not properly behave like the Pega viewer.
+
+Required behavior:
+
+When the viewer is at the bottom:
+
+- New live logs automatically keep the view at the bottom.
+
+When the user manually scrolls upward:
+
+- Auto-scroll should automatically disable.
+- New logs should continue arriving without forcibly jumping the user back to the bottom.
+
+The user should be able to inspect older logs without fighting the live stream.
+
+If the user returns to the bottom, auto-scroll can resume according to the existing Pega behavior.
+
+Inspect the Pega implementation and reproduce its behavior rather than inventing a second implementation.
+
+==================================================
+ISSUE 9 — FILTER HEADER SHOULD BE COLLAPSIBLE
+==================================================
+
+The filter/search controls currently occupy the screen permanently.
+
+Instead, introduce a filter icon in the log viewer header.
+
+Default state:
+
+Filter controls collapsed.
+
+Header shows:
+
+[Filter icon]
+
+Click Filter:
+
+→ Expand the filter/search header.
+
+Expanded state should contain:
+
+- Search input
+- Regex
+- Case Sensitive
+- Log level selector
+- Search button
+- Clear action
+- Any other existing log filters
+
+Click Filter again:
+
+→ Collapse the filter area.
+
+The expansion/collapse should be subtle and professional.
+
+Do not cause the entire log viewer to jump around unnecessarily.
+
+Use the same interaction pattern as the Pega Log Streamer if one already exists there.
+
+==================================================
+ISSUE 10 — SEARCH BAR AND CLEAR BUTTON
+==================================================
+
+The search input is currently rectangular.
+
+Change it to match the application's pill-shaped design.
+
+The Clear button should also use the established pill/button design.
+
+Do not create arbitrary dimensions.
+
+Inspect the Pega Log Streamer and existing shared controls for:
+
+- border radius
+- height
+- typography
+- padding
+- icon placement
+- focus state
+- dark theme
+- light theme
+
+Reuse those patterns.
+
+==================================================
+ISSUE 11 — CONTAINER SELECTOR ALIGNMENT
+==================================================
+
+The container selector currently has poor internal alignment.
+
+The pill itself is oversized while the container name and dropdown arrow occupy only part of it.
+
+Fix the control.
+
+Inspect:
+
+- width
+- min-width
+- content width
+- horizontal padding
+- arrow placement
+- vertical alignment
+- flex alignment
+- gap
+- line height
+- text overflow
+
+The content should be visually centered and proportionate inside the pill.
+
+Do not simply reduce the overall width without understanding why the content is not being laid out correctly.
+
+Check all header controls for the same problem.
+
+==================================================
+ISSUE 12 — REVIEW THE ENTIRE LOG HEADER LAYOUT
+==================================================
+
+The log header currently looks like several pill controls were simply placed next to each other without proper layout validation.
+
+Do a complete layout review.
+
+Check:
+
+- Back to Discovery
+- Pod name
+- Container selector
+- Include previous container logs
+- Reload Session
+- Stop Live
+- Terminate Session
+- Auto Scroll
+- Live indicator
+- Filter icon
+- Search/filter controls
+
+Verify:
+
+- vertical alignment
+- horizontal spacing
+- consistent control heights
+- pill sizing
+- icon alignment
+- text alignment
+- responsive behavior
+- dark/light theme
+- available width
+
+Do not assume each control is individually correct just because it uses a pill class.
+
+==================================================
+ISSUE 13 — PILL DESIGN CONSISTENCY
+==================================================
+
+The Kubernetes Log Streamer must follow the existing application's visual language.
+
+Use the Pega Log Streamer and existing shared components as references.
+
+Review:
+
+- buttons
+- selectors
+- dropdowns
+- search
+- filters
+- status badges
+- icons
+- destructive actions
+- loading states
+
+Avoid square/default-browser-looking controls.
+
+However, do not blindly make every UI element pill-shaped.
+
+Use the application's established design system.
+
+==================================================
+ISSUE 14 — GO LIVE
+==================================================
+
+Go Live currently appears to take approximately 20 seconds before logs start appearing.
+
+First diagnose why.
+
+Expected behavior:
+
+User clicks Go Live.
+
+→ button immediately enters loading/connecting state
+
+→ backend/WebSocket connection is established
+
+→ first live log event arrives
+
+→ viewer enters live state
+
+→ live indicator becomes active
+
+Do not make the user wait with no feedback.
+
+If the connection genuinely requires time, show a clear connecting state.
+
+If the connection can be made faster, fix the bottleneck.
+
+Do not add arbitrary delays.
+
+==================================================
+ISSUE 15 — STOP LIVE / TERMINATE SESSION
+==================================================
+
+Stop Live and Terminate Session currently appear to take 10–20 seconds.
+
+Investigate both separately.
+
+Stop Live should stop the live stream promptly while preserving the session/history where that is the intended behavior.
+
+Terminate Session should:
+
+- stop live streaming if active
+- close WebSocket
+- stop associated backend work
+- clean up temporary workspace
+- remove session state
+- return the UI to the correct state
+
+Do not leave background processes running.
+
+Do not simply hide the UI while the backend continues working.
+
+If cleanup legitimately takes time, show a loading state while it occurs.
+
+==================================================
+ISSUE 16 — PERSIST THE EXISTING SESSION ARCHITECTURE
+==================================================
+
+Do NOT remove the session architecture.
+
+The existing session concept is intentional because it provides:
+
+- per-user/session isolation
+- disk-backed temporary workspace
+- WebSocket/session lifecycle
+- concurrent user support
+- stale-session cleanup
+- orphan cleanup
+- session termination and workspace cleanup
+
+The UI should simply hide unnecessary implementation details from the user.
+
+The intended UX is:
+
+Stream
+→ session automatically initialized
+→ initial static logs loaded
+→ log viewer displayed
+
+Then:
+
+Go Live
+→ live streaming begins
+
+Stop Live
+→ live streaming stops
+
+Terminate Session
+→ session is destroyed and cleaned up
+
+Do not bring back Open Session as a required user action.
+
+==================================================
+ISSUE 17 — STATIC LOG LOADING
+==================================================
+
+The initial static log view should load a defined number of log lines, currently expected to be approximately 1000 lines according to the existing implementation.
+
+Verify the actual configured value in code before changing anything.
+
+The important behavior is:
+
+- Request the intended number of static lines.
+- Parse them correctly.
+- Format them correctly.
+- Render them as individual log entries.
+- Put newest entries at the bottom.
+- Position the initial viewport at the newest entries.
+- Only after this is ready should the main view transition in.
+
+Do not render a half-parsed raw block and then progressively rearrange it.
+
+==================================================
+ISSUE 18 — PEGA LOG STREAMER COMPARISON
+==================================================
+
+This is important.
+
+Perform a source-level comparison between the Kubernetes Log Streamer and Pega Log Streamer.
+
+Identify equivalent functionality in Pega for:
+
+- log row rendering
+- timestamp formatting
+- log levels
+- multiline logs
+- search
+- regex
+- case sensitivity
+- level filter
+- clear
+- filter collapse
+- auto-scroll
+- scroll handling
+- newest-at-bottom behavior
+- live indicator
+- loading state
+- stop behavior
+- header layout
+- pill controls
+
+For each equivalent feature:
+
+If a reusable component/helper already exists:
+→ reuse it.
+
+If Pega contains logic that is specific to Pega's log format:
+→ reuse the interaction pattern but adapt the parser for Kubernetes.
+
+Do NOT copy Pega-specific business logic blindly.
+
+The goal is consistent UX and proven behavior, not duplicate code.
+
+==================================================
+ISSUE 19 — DO NOT ADD VISUAL COMPLEXITY JUST TO HIDE BUGS
+==================================================
+
+Do not solve problems by adding:
+
+- arbitrary delays
+- excessive animations
+- artificial skeleton screens
+- fake loading progress
+- forced browser reloads
+- arbitrary polling
+- unnecessary state duplication
+
+Loading indicators and transitions are welcome when tied to real application state.
+
+The UI should reflect the actual lifecycle of the operation.
+
+==================================================
+PHASE 2 — IMPLEMENT
+==================================================
+
+After the diagnosis:
+
+1. Fix application-switch state synchronization.
+2. Fix namespace refresh.
+3. Fix Stream loading state.
+4. Fix static log retrieval/rendering.
+5. Fix log parsing/formatting.
+6. Fix log ordering.
+7. Fix initial scroll position.
+8. Fix auto-scroll.
+9. Fix scrollbar behavior.
+10. Add collapsible filter header.
+11. Fix search/clear pill styling.
+12. Fix container selector sizing/alignment.
+13. Fix header layout.
+14. Diagnose and fix Go Live latency.
+15. Diagnose and fix Stop Live latency.
+16. Diagnose and fix Terminate Session latency.
+17. Implement the stable transition from discovery → log viewer.
+18. Reuse Pega/shared components where appropriate.
+
+==================================================
+PHASE 3 — VALIDATION
+==================================================
+
+Do not stop after compiling successfully.
+
+Validate the actual lifecycle.
+
+Test:
+
+TEST 1:
+Application A → Kubernetes Log Streamer
+Confirm correct namespace.
+
+TEST 2:
+Switch A → B
+Confirm namespace immediately changes without refresh.
+
+TEST 3:
+Switch B → C
+Confirm namespace immediately changes without refresh.
+
+TEST 4:
+Discover
+Confirm pod table is correct.
+
+TEST 5:
+Click Stream
+Confirm button immediately shows loading state.
+
+TEST 6:
+Wait for static logs
+Confirm no intermediate broken layout.
+
+TEST 7:
+Confirm log viewer transition occurs only after initial log data is ready.
+
+TEST 8:
+Confirm individual log entries are properly formatted.
+
+TEST 9:
+Confirm newest logs are at bottom.
+
+TEST 10:
+Confirm initial viewport is at newest logs.
+
+TEST 11:
+Scroll upward.
+Confirm auto-scroll disables.
+
+TEST 12:
+Scroll back to bottom.
+Confirm auto-scroll behavior resumes according to Pega behavior.
+
+TEST 13:
+Move over log area.
+Confirm scrollbar behavior.
+
+TEST 14:
+Open Filter.
+Confirm filter controls expand.
+
+TEST 15:
+Collapse Filter.
+Confirm controls disappear cleanly.
+
+TEST 16:
+Search.
+Confirm search works.
+
+TEST 17:
+Regex/case-sensitive/log-level filtering.
+Confirm existing functionality remains intact.
+
+TEST 18:
+Click Go Live.
+Confirm connection state is visible and diagnose/verify actual connection latency.
+
+TEST 19:
+Confirm live logs appear.
+
+TEST 20:
+Scroll upward while live logs arrive.
+Confirm the viewer does not forcibly jump back down.
+
+TEST 21:
+Stop Live.
+Confirm live stream actually terminates promptly.
+
+TEST 22:
+Terminate Session.
+Confirm session/workspace/backend resources are actually cleaned up.
+
+TEST 23:
+Start another session.
+Confirm no stale state from the previous session.
+
+TEST 24:
+Switch application after using the Kubernetes Log Streamer.
+Confirm no previous application's namespace/log/session state leaks into the new application.
+
+==================================================
+FINAL REPORT
+==================================================
+
+When finished, provide a concise report with:
+
+1. Root cause of application-switch/namespace bug
+2. Root cause of Stream transition glitch
+3. Root cause of slow static-log loading
+4. Root cause of Go Live latency
+5. Root cause of Stop/Terminate latency
+6. Root cause of incorrect log formatting
+7. What was reused from Pega Log Streamer
+8. What UI components were changed
+9. What backend/session behavior was changed
+10. Tests performed and their results
+
+Do not claim an issue is fixed merely because the code compiles.
+
+If something could not be verified, explicitly say so.
