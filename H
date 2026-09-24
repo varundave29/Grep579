@@ -1,0 +1,531 @@
+Implement the following as a NEW, isolated UI change.
+
+IMPORTANT:
+- This is a UI/layout/interaction refinement.
+- Do not modify backend APIs, data fetching, job execution, calculations, routing architecture, or existing business logic unless strictly required for the UI behavior.
+- Inspect the existing implementation before changing it.
+- Reuse existing shared theme variables/components where possible.
+- Do not duplicate theme logic unnecessarily.
+- Preserve all existing functionality and click behavior unless explicitly changed below.
+- Do not redesign the terminal/log output itself.
+- Test both dark and light themes.
+
+==================================================
+1. HEADER: RENAME AND PRESERVE NAVIGATION BEHAVIOR
+==================================================
+
+The current top-left header displays:
+
+"DevOps Console"
+
+Change the visible title to:
+
+"DevOps Automation Console"
+
+The logo/icon and title together must remain a clickable navigation element.
+
+IMPORTANT: PRESERVE/IMPLEMENT THE FOLLOWING NAVIGATION BEHAVIOR.
+
+A. When the user is anywhere inside the application:
+- Clicking the logo + "DevOps Automation Console" should take the user to the main dashboard/landing page.
+
+B. When the user is already on the main dashboard:
+- Clicking the logo + title should navigate back to the previous application screen from which the user arrived at the dashboard, IF such a previous navigation context exists.
+
+Example:
+
+User is viewing:
+Log Streamer for application 55042
+        ↓
+clicks DevOps Automation Console
+        ↓
+Main Dashboard
+        ↓
+clicks DevOps Automation Console again
+        ↓
+returns to Log Streamer for application 55042
+
+The application context must be preserved.
+
+C. If the user logged in and landed directly on the dashboard and there is no meaningful previous application screen:
+- Clicking the logo while already on the dashboard should simply keep the user on the dashboard.
+- Do not navigate to an unrelated browser history page.
+
+IMPORTANT:
+Do not implement this by blindly calling browser back().
+Do not introduce a generic history-back behavior that could take the user outside the application.
+
+Inspect the application's existing routing/navigation/history/state implementation and implement this using the application's existing route/context mechanisms where possible.
+
+The previous application context must include relevant route/query parameters such as the application identifier when applicable.
+
+Example:
+
+/console?module=logs&application=55042
+
+must return to that same logical destination, not merely /console.
+
+Also preserve existing navigation behavior from all other areas of the application.
+
+==================================================
+2. HEADER HORIZONTAL ALIGNMENT
+==================================================
+
+The logo + "DevOps Automation Console" currently sits slightly too far to the right.
+
+Move the entire logo/title group slightly to the left so that its left alignment is visually consistent with the collapsed hamburger/navigation control underneath it.
+
+The desired relationship is:
+
+Header:
+[ Logo + DevOps Automation Console ]
+
+Navigation:
+[ Hamburger ]
+
+The left edge of the logo/navigation group should feel like one consistent vertical alignment.
+
+Do not move the entire header unnecessarily.
+
+Do not alter the right-side user controls.
+
+Slightly increase or preserve the current logo/title size if required for visual balance, but do not make the header taller just to achieve alignment.
+
+==================================================
+3. CREATE A SHARED THEME VISUAL LANGUAGE
+==================================================
+
+The Kubernetes Operational Analytics widget currently has a subtle visual treatment that works well in both dark and light themes.
+
+Use that treatment as the visual reference for the rest of the application's NON-TERMINAL surfaces.
+
+The goal is to create a unified visual language across the application.
+
+This should include things such as:
+- Border treatment
+- Subtle background treatment
+- Accent tint
+- Border glow/gradient if already present
+- Header/section styling
+- Focus/hover treatment where appropriate
+
+Do NOT simply copy the exact analytics component CSS everywhere.
+
+Instead:
+- Identify the reusable visual properties.
+- Create/reuse shared theme tokens or shared styling.
+- Apply those tokens consistently.
+
+The analytics widget should become the visual reference.
+
+==================================================
+4. APPLY THE SHARED THEME TO DASHBOARD WIDGETS
+==================================================
+
+Apply the same visual language to:
+
+- Tenant Utilization
+- Pod Count Summary
+- Kubernetes Operational Analytics
+
+The Tenant Utilization and Pod Count Summary should visually belong to the same design system as Kubernetes Operational Analytics.
+
+Do not change their data or functionality.
+
+Do not make them identical cards.
+
+They should retain their individual structure while sharing:
+- Theme treatment
+- Border language
+- Background treatment
+- Accent styling
+- Typography hierarchy
+
+==================================================
+5. APPLY THE SAME THEME TO JOBS VIEW
+==================================================
+
+The Jobs view contains job categories and individual job entries.
+
+Apply the shared theme treatment to the NON-TERMINAL portions of this page.
+
+For example:
+- Page-level containers
+- Job section/category containers
+- Job cards/rows
+- Borders
+- Section headers
+
+Preserve all job functionality.
+
+Do not change:
+- Job execution
+- Job selection
+- Job status
+- Job history
+- Job output
+- Job controls
+
+This is a visual-only change.
+
+==================================================
+6. TERMINAL MUST REMAIN PLAIN
+==================================================
+
+This is VERY IMPORTANT.
+
+Do NOT apply the new dashboard/analytics theme INSIDE terminal/log-output areas.
+
+Terminal content must remain:
+
+Dark theme:
+- Plain/dark terminal background
+- Existing terminal text/colors
+- Existing log rendering
+
+Light theme:
+- Plain/light terminal background
+- Existing terminal text/colors
+- Existing log rendering
+
+Do not apply gradient backgrounds, analytics tint, colored backgrounds, or decorative card styling to the actual terminal content.
+
+The terminal itself should remain visually functional and readable.
+
+==================================================
+7. CONSOLE/JOBS TERMINAL BORDER
+==================================================
+
+Although the terminal CONTENT must remain plain, the outer container surrounding the terminal can use the shared application theme.
+
+For example:
+
+[ Shared themed border/container
+  -------------------------------
+  |                             |
+  |      PLAIN TERMINAL         |
+  |                             |
+  -------------------------------
+]
+
+So:
+
+OUTSIDE TERMINAL:
+Use shared application theme.
+
+INSIDE TERMINAL:
+Keep existing plain terminal appearance.
+
+Do not allow the themed border/background to bleed into the terminal content area.
+
+==================================================
+8. LOG STREAMER
+==================================================
+
+Apply the shared theme to the Log Streamer UI headers/outer containers.
+
+The Log Streamer currently has header/control sections above the actual log output.
+
+Apply the shared theme to those header sections.
+
+Examples include:
+- Namespace/Tier/Type controls
+- Search controls
+- Log status/header area
+- Other non-terminal container/header surfaces
+
+Do NOT apply the analytics theme to the actual log output/terminal area.
+
+The log output should remain exactly as it is visually, apart from any existing theme behavior.
+
+Conceptually:
+
+[ THEMED LOG STREAMER HEADER ]
+[ THEMED LOG STREAMER CONTROLS ]
+--------------------------------
+[                              ]
+[       PLAIN LOG TERMINAL     ]
+[                              ]
+--------------------------------
+
+==================================================
+9. BOTH DARK AND LIGHT THEMES
+==================================================
+
+The shared visual language must work properly in both themes.
+
+Dark theme:
+- Preserve the current dark aesthetic.
+- Use subtle analytics-style accent tinting.
+- Avoid excessive brightness.
+- Keep text highly legible.
+
+Light theme:
+- Use the same design language translated appropriately for light mode.
+- Do not simply reuse dark-mode colors.
+- Keep borders subtle.
+- Avoid excessive colored backgrounds.
+
+The two themes should feel like the same application, not two unrelated designs.
+
+==================================================
+10. DO NOT OVER-COLOR THE APPLICATION
+==================================================
+
+The purpose of this change is visual consistency, not making every component brightly colored.
+
+Use the Kubernetes Operational Analytics styling as inspiration for:
+- Subtle accent
+- Border
+- Background
+- Hierarchy
+
+Do not turn every widget into a brightly colored card.
+
+Critical/warning/error colors must continue to retain their semantic meaning.
+
+==================================================
+11. ANALYTICS EVIDENCE EXPANSION
+==================================================
+
+There is an important interaction problem in the Kubernetes Operational Analytics widget.
+
+Currently, when the user clicks "Evidence" on one insight card, the entire row/card layout expands.
+
+For example:
+
+[ Card A ] [ Card B ] [ Card C ]
+
+Click Evidence on Card A.
+
+Currently:
+Card A expands
+Card B is pushed/resized
+Card C is pushed/resized
+
+This is NOT desired.
+
+Only the selected card should expand.
+
+==================================================
+12. EXPANDED EVIDENCE MUST BE CARD-SPECIFIC
+==================================================
+
+When the user clicks Evidence on a specific insight card:
+
+- Only that card should expand.
+- Other cards must remain exactly where they are.
+- The grid layout must not recalculate the row height based on the expanded content.
+- Cards beside or underneath it must not be pushed downward.
+
+The expanded Evidence content should behave like an overlay/popover/expanded panel anchored to the selected card.
+
+Conceptually:
+
+Normal:
+
++----------------+  +----------------+
+| Card A         |  | Card B         |
+|                |  |                |
+| Evidence       |  | Evidence       |
++----------------+  +----------------+
+
+After clicking Evidence on A:
+
++----------------+  +----------------+
+| Card A         |  | Card B         |
+|                |  |                |
+| Evidence       |  |                |
+|----------------|  |                |
+| Expanded       |  |                |
+| Evidence       |  |                |
+| content        |  |                |
++----------------|  +----------------+
+      ↑
+   overlay
+
+The expanded content may visually overlap the card below or adjacent cards.
+
+That is intentional.
+
+==================================================
+13. EXPANDED CARD POSITIONING
+==================================================
+
+Implement the expanded Evidence content using an appropriate positioning strategy such as:
+
+- position: absolute
+- an anchored popover
+- a portal/popover component
+
+depending on the existing frontend architecture.
+
+The key requirement is:
+
+THE EXPANDED CONTENT MUST NOT PARTICIPATE IN THE NORMAL GRID/FLEX FLOW.
+
+Use an appropriate z-index so the expanded card appears above neighboring cards.
+
+Do not allow it to be clipped by a parent container if the parent currently uses overflow:hidden.
+
+If necessary, use a portal/popover strategy to avoid clipping.
+
+==================================================
+14. EXPANSION BEHAVIOR
+==================================================
+
+When Evidence is clicked:
+
+- Open the selected card's evidence.
+- Keep all other cards unchanged.
+- Preserve the existing Evidence data.
+- Preserve the existing evidence generation/data-fetching behavior.
+- Do not fetch different data just for visual reasons.
+
+When the user clicks the Evidence button again:
+- Collapse the expanded content.
+
+When the user clicks outside the expanded card:
+- Collapse it.
+
+When the user navigates to another page/module:
+- Close the expanded state naturally.
+
+Only one Evidence expansion should be open at a time.
+
+If the user opens Evidence on Card B while Card A is expanded:
+- Close Card A.
+- Open Card B.
+
+==================================================
+15. EXPANDED CONTENT MUST REMAIN USABLE
+==================================================
+
+If the evidence content is larger than the available space:
+
+- The expanded panel may have its own compact internal scrolling.
+- Do not expand the entire dashboard unnecessarily.
+- Do not create an unnecessary page-level layout shift.
+
+Use a sensible maximum height if required.
+
+The expanded evidence should remain readable.
+
+==================================================
+16. CARD HEIGHT AND GRID STABILITY
+==================================================
+
+Normal insight cards must retain their current compact height.
+
+The grid should remain stable when evidence is expanded.
+
+Example:
+
+Before:
+
+[A] [B]
+[C] [D]
+
+After expanding A:
+
+[A expanded overlay] [B]
+[C]                 [D]
+
+NOT:
+
+[A expanded]
+[B pushed down]
+
+[C pushed down]
+[D pushed down]
+
+The surrounding grid must remain stable.
+
+==================================================
+17. CLICK-OUTSIDE BEHAVIOR
+==================================================
+
+Implement proper click-outside handling.
+
+Clicking:
+- Another card
+- Empty dashboard space
+- Another dashboard control
+
+should close the expanded evidence panel where appropriate.
+
+Do not accidentally trigger the underlying card/button when clicking outside the overlay.
+
+Preserve normal navigation and button behavior.
+
+==================================================
+18. VISUAL CONSISTENCY OF EXPANDED EVIDENCE
+==================================================
+
+The expanded Evidence panel should use the same visual language as the insight card.
+
+It should feel like an extension of that card, not like an unrelated modal.
+
+Maintain:
+- Same border treatment
+- Same theme
+- Same severity accent
+- Same typography
+- Same spacing system
+
+But make the evidence content easier to read when expanded.
+
+==================================================
+19. VALIDATION
+==================================================
+
+Before completing the implementation, verify ALL of the following.
+
+HEADER:
+- Title is exactly "DevOps Automation Console".
+- Logo + title are clickable.
+- Clicking from any module goes to the dashboard.
+- Dashboard → logo returns to the previous meaningful application context.
+- Application query parameters/context are preserved.
+- Dashboard with no previous context remains on dashboard.
+- Header logo/title is aligned with the collapsed hamburger/navigation.
+- Right-side header controls are unaffected.
+
+THEME:
+- Tenant Utilization uses the shared analytics visual language.
+- Pod Count Summary uses the shared analytics visual language.
+- Jobs view uses the shared analytics visual language.
+- Log Streamer headers use the shared analytics visual language.
+- Terminal/log content does NOT receive the analytics background/theme.
+- Dark theme works.
+- Light theme works.
+- The application looks like one consistent design system.
+
+EVIDENCE:
+- Clicking Evidence expands only the selected card.
+- Other cards do not move.
+- Other cards do not resize.
+- Expanded content overlays neighboring/underlying cards where necessary.
+- Expanded content is above other cards using correct stacking order.
+- Parent overflow does not clip the expanded content.
+- Clicking Evidence again collapses it.
+- Clicking outside collapses it.
+- Navigating away clears the expanded state.
+- Opening another card closes the previously expanded card.
+- Existing evidence data remains unchanged.
+- Existing Evidence functionality remains intact.
+
+IMPORTANT:
+After implementation, inspect the resulting DOM/layout behavior rather than assuming the CSS works.
+
+Specifically verify that opening one Evidence panel does NOT change the computed height/position of sibling cards in the grid.
+
+Do not modify unrelated application functionality.
+
+At the end, provide:
+1. Components/files changed.
+2. Shared theme mechanism introduced/reused.
+3. Header navigation implementation preserved/changed.
+4. Evidence overlay implementation.
+5. Confirmation that terminal/log content remains plain.
+6. Confirmation that dark and light themes were checked.
