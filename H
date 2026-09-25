@@ -1,0 +1,29 @@
+Update the Pod Metrics Snapshot flow only. Keep a hard separation between Snapshot and Live Monitoring; do not modify, refactor, or change the behavior of the Live Monitoring flow.
+
+Snapshot requirements:
+- Snapshot collection window: 15 seconds.
+- Collect up to 5 samples at 3-second intervals.
+- Aggregate CPU and memory using the average of all valid samples available for that pod.
+- Ignore unavailable/failed samples when calculating the average.
+- If at least one valid sample exists, display the aggregated metric.
+- If no valid sample exists for a pod, retain the existing unavailable/status behavior.
+- Do not calculate or display CPU/memory peaks.
+- Keep the existing Snapshot UI/table structure otherwise unchanged.
+
+Loading UI:
+- When the user clicks Run Metrics, show a centered pill-shaped progress bar in the existing Pod Metrics content area.
+- Use a neutral/dark gray style consistent with the existing dashboard.
+- No loading text.
+- Animate smoothly from 0% to 100% over the 15-second collection window.
+- Show the percentage alongside the progress bar.
+- At 100%, keep the completed pill visible while waiting for the backend response if aggregation/result processing takes a few additional seconds.
+- Remove the loading state and display the snapshot results only when the actual snapshot response is ready.
+- Do not block or delay the backend request artificially just to control the animation.
+
+Testing:
+- Inspect the existing implementation and relevant tests before making changes.
+- Update/add only the tests relevant to this Snapshot aggregation and loading behavior.
+- Run the full relevant Pod Metrics test suite.
+- Explicitly verify that Live Monitoring behavior, WebSocket flow, polling/streaming, session lifecycle, timeouts, and existing functionality are unchanged.
+- Run the relevant Live Monitoring tests/regression tests and ensure they pass.
+- Fix any regressions caused by the Snapshot changes before completing the task.
