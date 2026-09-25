@@ -1,0 +1,39 @@
+Troubleshoot and correct the current uncommitted implementation of the Catalyst Environment Inventory job.
+
+Important context:
+- The intended application ID is 50752.
+- An application ID 507552 was accidentally configured/created due to a typo. This is incorrect and must be removed from the current uncommitted implementation.
+- The Catalyst Environment Inventory job was recently implemented based on the existing 55042 analysis/logic.
+- The job currently fails with a "No such file or directory" error.
+- Nothing has been committed yet. Preserve useful existing work and fix the current implementation rather than rebuilding it from scratch.
+- 55042 is the known reference implementation/data model.
+
+First inspect the current repository state, git diff/status, the Catalyst Environment Inventory implementation, application configuration/registration, artifact discovery/download logic, tests, and the existing 55042/reference logic.
+
+Then:
+
+1. Identify every place where 507552 was introduced and correct it to 50752.
+2. Remove the accidentally created 507552 application/configuration/registration cleanly. Do not remove or modify unrelated applications.
+3. Trace the actual cause of the "No such file or directory" error from the job execution path. Do not assume the cause is the artifact path; inspect the stack trace/logging and actual filesystem/path handling.
+4. Verify the Artifactory path construction for 50752 against the established artifact structure.
+5. Verify JSON directory discovery and latest-artifact selection for each environment.
+6. Verify DB directory handling where applicable.
+7. Verify the generic reconciliation logic against the validated 55042 behavior.
+8. Verify that the job generates:
+   - Environment Summary
+   - VM Inventory
+9. Verify the CSV download generation and formatting.
+10. Check that the Console job registration and application-level execution flow are correct.
+11. Add/update tests for the fixes and run the relevant test suite.
+
+Do not commit anything.
+
+Do not redesign the feature unless the existing implementation is demonstrably incorrect. Reuse the existing architecture and the validated 55042 logic wherever possible.
+
+At the end, report:
+- root cause of the failure
+- what was changed
+- confirmation that 507552 was completely removed
+- confirmation that 50752 is correctly configured
+- tests executed and results
+- any remaining issue that requires real Artifactory/runtime validation
