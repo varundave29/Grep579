@@ -1,0 +1,300 @@
+version: 2
+
+# Standardized error-classification configuration for the Kubernetes Log Streamer.
+#
+# Definitions provide vendor/application scope.
+# Generic rules apply across applications.
+# Vendor/application-specific rules are added without changing Python/React code.
+
+definitions:
+
+  # ---------------------------------------------------------------------------
+  # Generic rules
+  # ---------------------------------------------------------------------------
+  - id: generic
+    vendor: "*"
+    application: "*"
+    rules:
+
+      - id: timeout
+        label: Timeout
+        category: availability
+        description: "The operation exceeded its configured or expected timeout."
+        pattern: "(?i)\\b(?:timeout|timed out)\\b"
+        severity: WARN
+        details:
+          summary_template: "The operation timed out."
+          context:
+            before_lines: 0
+            after_lines: 2
+
+      - id: database-error
+        label: Database Error
+        category: database
+        description: "A database-related error was detected in the log."
+        pattern: "(?i)\\bORA-[0-9]+\\b"
+        severity: ERROR
+        details:
+          summary_template: "A database error was detected."
+          context:
+            before_lines: 1
+            after_lines: 2
+
+      - id: connection-failure
+        label: Connection Failure
+        category: connectivity
+        description: "A connection attempt failed or was refused."
+        pattern: "(?i)\\b(?:connection refused|connection reset|connection failed|connect(?:ion)?\\s+(?:failure|failed)|unable to connect)\\b"
+        severity: ERROR
+        details:
+          summary_template: "A connection failure was detected."
+          context:
+            before_lines: 1
+            after_lines: 2
+
+      - id: dns-unknown-host
+        label: DNS / Unknown Host
+        category: connectivity
+        description: "The log indicates a DNS lookup or unknown-host problem."
+        pattern: "(?i)\\b(?:unknown host|host not found|name or service not known|temporary failure in name resolution|no such host)\\b"
+        severity: ERROR
+        details:
+          summary_template: "A DNS or unknown-host condition was detected."
+          context:
+            before_lines: 1
+            after_lines: 2
+
+      - id: authentication
+        label: Authentication Failure
+        category: authentication
+        description: "Authentication failed or credentials were rejected."
+        pattern: "(?i)\\b(?:authentication failed|auth(?:entication)?\\s+failure|invalid credentials|login failed|unauthenticated)\\b"
+        severity: ERROR
+        details:
+          summary_template: "An authentication failure was detected."
+          context:
+            before_lines: 1
+            after_lines: 2
+
+      - id: authorization
+        label: Authorization Failure
+        category: authorization
+        description: "The operation was rejected because the caller was not authorized."
+        pattern: "(?i)\\b(?:authorization failed|access denied|permission denied|forbidden|not authorized|unauthorized)\\b"
+        severity: ERROR
+        details:
+          summary_template: "An authorization failure was detected."
+          context:
+            before_lines: 1
+            after_lines: 2
+
+      - id: http-error
+        label: HTTP Error
+        category: http
+        description: "An HTTP request returned an error condition."
+        pattern: "(?i)\\bHTTP\\s*(?:4[0-9]{2}|5[0-9]{2})\\b"
+        severity: ERROR
+        details:
+          summary_template: "An HTTP error response was detected."
+          context:
+            before_lines: 1
+            after_lines: 2
+
+      - id: out-of-memory
+        label: Out of Memory
+        category: memory
+        description: "The process reported an out-of-memory condition."
+        pattern: "(?i)\\b(?:OutOfMemoryError|out of memory|OOMKilled|OOM)\\b"
+        severity: FATAL
+        details:
+          summary_template: "An out-of-memory condition was detected."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+      - id: file-error
+        label: File Error
+        category: file
+        description: "A file-system or file-access error was detected."
+        pattern: "(?i)\\b(?:file not found|no such file|permission denied|I/O error|input/output error)\\b"
+        severity: ERROR
+        details:
+          summary_template: "A file-system or file-access error was detected."
+          context:
+            before_lines: 1
+            after_lines: 2
+
+      - id: null-pointer
+        label: Null Pointer
+        category: application
+        description: "A null-pointer condition was detected."
+        pattern: "(?i)\\b(?:NullPointerException|NoneType.*attribute|cannot read.*null|cannot read.*undefined)\\b"
+        severity: ERROR
+        details:
+          summary_template: "A null-pointer or null-reference condition was detected."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+      - id: ssl-tls
+        label: SSL/TLS Error
+        category: security
+        description: "An SSL/TLS handshake or certificate error was detected."
+        pattern: "(?i)\\b(?:SSL|TLS)\\b.*\\b(?:error|exception|handshake|certificate|verify|verification|alert)\\b"
+        severity: ERROR
+        details:
+          summary_template: "An SSL/TLS problem was detected."
+          context:
+            before_lines: 1
+            after_lines: 2
+
+      - id: exception
+        label: Exception
+        category: application
+        description: "An application exception was detected."
+        pattern: "(?i)\\bException\\s*:"
+        severity: ERROR
+        details:
+          summary_template: "An application exception was detected."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+  # ---------------------------------------------------------------------------
+  # Pega-specific rules
+  #
+  # These are exact verified signatures. Do not replace them with a broad
+  # PEGA-[0-9]+ pattern.
+  # ---------------------------------------------------------------------------
+  - id: pega
+    vendor: pega
+    application: "*"
+    rules:
+
+      - id: pega-0001
+        label: HTTP Slow
+        category: latency
+        description: "Pega reported an HTTP operation taking longer than expected."
+        pattern: "\\bPEGA0001\\b"
+        severity: WARN
+        details:
+          summary_template: "Pega reported a slow HTTP operation."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+      - id: pega-0002
+        label: DB Commit Slow
+        category: database
+        description: "Pega reported a database commit operation taking longer than expected."
+        pattern: "\\bPEGA0002\\b"
+        severity: WARN
+        details:
+          summary_template: "Pega reported a slow database commit operation."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+      - id: pega-0004
+        label: DB Data Large
+        category: database
+        description: "Pega reported an unusually large amount of data being returned or processed by a database operation."
+        pattern: "\\bPEGA0004\\b"
+        severity: WARN
+        details:
+          summary_template: "Pega reported an unusually large database result or data volume."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+      - id: pega-0005
+        label: DB Query Slow
+        category: database
+        description: "Pega reported a database query taking longer than expected."
+        pattern: "\\bPEGA0005\\b"
+        severity: WARN
+        details:
+          summary_template: "Pega reported a slow database query."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+      - id: pega-0026
+        label: DB Connection Wait
+        category: database
+        description: "Pega reported a delay while waiting to acquire a database connection."
+        pattern: "\\bPEGA0026\\b"
+        severity: WARN
+        details:
+          summary_template: "Pega reported a wait for a database connection."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+      - id: ops-0007
+        label: DB Connection Failure
+        category: database
+        description: "Pega OPS reported a database connection failure."
+        pattern: "\\bOPS0007\\b"
+        severity: ERROR
+        details:
+          summary_template: "Pega OPS reported a database connection failure."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+      - id: ops-0020
+        label: DB Disconnected
+        category: database
+        description: "Pega OPS reported a database connection or database state becoming disconnected."
+        pattern: "\\bOPS0020\\b"
+        severity: ERROR
+        details:
+          summary_template: "Pega OPS reported a database disconnection."
+          context:
+            before_lines: 1
+            after_lines: 3
+
+# Schema notes:
+#
+# details.summary_template is the stable fallback explanation.
+# The implementation should augment it with occurrence-specific information
+# extracted from the actual log entry.
+#
+# Do not fabricate extracted values.
+# Empty/unavailable occurrence fields should be omitted from the popover.
+#
+# Future vendor/application definitions can be added here without changing
+# the rule engine:
+#
+# - id: internal-payment-service
+#   vendor: internal
+#   application: payment-service
+#   rules:
+#     - id: payment-timeout
+#       label: Payment Timeout
+#       category: availability
+#       description: "..."
+#       pattern: "..."
+#       severity: ERROR
+#       details:
+#         summary_template: "..."
+#         extract:
+#           - id: request_id
+#             label: Request ID
+#             pattern: "..."
+#
+# The rule engine should support optional:
+#   id
+#   label
+#   category
+#   description
+#   pattern
+#   severity
+#   scope/vendor/application
+#   details.summary_template
+#   details.context
+#   details.extract
+#
+# Existing legacy top-level `rules:` configuration should remain supported
+# during migration for backward compatibility.
