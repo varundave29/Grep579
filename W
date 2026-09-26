@@ -1,0 +1,190 @@
+Refine the Deployment Manager List View based on the current UI. Do not redesign the overall page or change the existing visual theme. Keep the current dark Frosted Neon Glass styling, status colors, spacing language, and general card appearance.
+
+1. ADAPTIVE LIST LAYOUT
+
+The deployment list should no longer be constrained to the narrow centered column currently shown.
+
+Implement responsive behavior:
+
+- If all deployments fit comfortably within the available viewport height, use a single-column layout.
+- In single-column mode, the deployment list should use approximately 95% of the available content width, leaving a small margin on both sides.
+- If a single-column layout would create excessive vertical scrolling, switch automatically to a two-column grid.
+- Maximum: 2 columns. Do not introduce 3+ columns.
+- In two-column mode, distribute the deployment cards evenly across the available content width.
+- The layout should respond to the actual available viewport/container size rather than relying only on a hardcoded deployment-count threshold.
+
+The goal is:
+- Few deployments → wide single-column cards.
+- More deployments → two-column grid.
+- Many deployments → two-column grid with vertical scrolling.
+
+2. SCROLLBAR BEHAVIOR
+
+Scrolling should only exist when the deployment list actually overflows vertically.
+
+- If the deployment list fits, there must be no scrollbar.
+- If the two-column grid overflows, enable vertical scrolling.
+- Do not display the scrollbar permanently.
+- Use a subtle overlay scrollbar.
+- Keep the scrollbar visually hidden when the list is not being interacted with.
+- Fade/show the scrollbar when the mouse enters the deployment-list area or when the user is actively scrolling.
+- Hide it again after the interaction ends.
+- Do not create nested or unnecessary scroll containers.
+
+3. REDESIGN THE INFORMATION INSIDE EACH DEPLOYMENT CARD
+
+The current information is too Kubernetes-field-oriented and does not communicate operational state clearly enough.
+
+Remove these fields from the primary list card:
+
+- Strategy: RollingUpdate
+- Images
+- Raw Updated count
+- Raw Available count
+
+Do NOT display the deployment strategy in the compact list view. RollingUpdate is effectively common to all deployments in this environment and therefore does not provide useful differentiation.
+
+Instead, prioritize information that helps an operator understand deployment health immediately.
+
+Each card should prominently contain:
+
+- Deployment name
+- Overall deployment status
+- Pods X/Y Ready
+- Compact visual replica indicator
+- Deployment age
+- Rollout state when relevant
+- Last changed / rollout time when relevant
+
+4. POD / REPLICA PRESENTATION
+
+Replace the current ambiguous horizontal indicator with an explicit readiness representation.
+
+Always show:
+
+Pods X/Y Ready
+
+Where:
+- X = currently ready replicas
+- Y = desired replicas
+
+Examples:
+
+Pods 1/1 Ready
+●
+
+Pods 2/3 Ready
+● ● ○
+
+Pods 3/3 Ready
+● ● ●
+
+Pods 0/3 Ready
+○ ○ ○
+
+The visual replica indicators should reinforce the numeric `X/Y Ready` information, not replace it.
+
+Use the existing status color language consistently:
+
+- Ready → green
+- Updating → yellow/amber
+- Not Ready → red
+- Stopped → neutral/grey
+
+5. STATUS HIERARCHY
+
+The deployment name and overall status should remain the strongest visual elements.
+
+For example:
+
+gb-svc-cc-cn                                      ● HEALTHY
+
+Pods 1/1 Ready                                  Age 38d
+●
+
+For an updating deployment:
+
+gb-svc-cc-sdi-recon                              ◐ UPDATING
+
+Pods 1/3 Ready                                  Age 33d
+● ○ ○
+Rollout: In Progress                            Changed 4m ago
+
+For a healthy/stable deployment, do not unnecessarily show `Rollout: Stable` if it adds visual noise. Stable/normal state should be implicit from the healthy status and ready replica count.
+
+Only show rollout information when it is operationally relevant, such as:
+
+- Updating
+- Rolling out
+- Progressing
+- Failed
+- Degraded
+- Replica mismatch
+
+6. INFORMATION DENSITY
+
+Do not simply make the cards significantly taller to accommodate the new information.
+
+Maintain approximately the current compact card density.
+
+The goal is to replace low-value/raw Kubernetes fields with fewer but more meaningful operational fields.
+
+A user should be able to scan 10–20 deployments and immediately identify:
+
+- Which deployments are healthy
+- Which deployments are updating
+- Which deployments have unavailable replicas
+- How many pods are ready
+- Which deployment recently changed
+- How old the deployment is
+
+7. IMPORTANT
+
+Do not change:
+- Existing navigation
+- Existing header
+- Existing topology/list toggle
+- Existing filters
+- Existing action behavior
+- Existing RBAC behavior
+- Existing deployment detail functionality
+- Existing API/backend contracts unless absolutely required
+- Existing Frosted Neon Glass visual style
+
+This is a focused refinement of the List View only.
+
+Before making changes, inspect the existing List View implementation and reuse the existing deployment/status data already available from the backend. Do not introduce mock/static data.
+
+After implementation, verify the following scenarios:
+
+A. Small number of deployments that fit vertically:
+   → single wide column, no scrollbar.
+
+B. More deployments:
+   → automatically switches to two columns.
+
+C. Enough deployments to overflow:
+   → two columns + vertical scrolling.
+
+D. Hover over the scroll area:
+   → scrollbar becomes visible.
+
+E. Move mouse away:
+   → scrollbar fades away.
+
+F. Healthy deployment with 1/1:
+   → clearly displays `Pods 1/1 Ready`.
+
+G. Healthy deployment with 3/3:
+   → clearly displays `Pods 3/3 Ready` and three ready indicators.
+
+H. Deployment with 2/3:
+   → clearly displays `Pods 2/3 Ready` with the missing replica visually distinguishable.
+
+I. Updating deployment:
+   → status and rollout state are clearly visible.
+
+J. Stopped/Not Ready deployment:
+   → status and replica state are immediately understandable.
+
+Do not add unnecessary animation or decorative elements. Keep the UI operational, dense, and easy to scan.
