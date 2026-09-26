@@ -1,0 +1,243 @@
+Advanced Frontend Technology Requirements
+
+Technology Selection
+
+Do not blindly upgrade the application’s existing frontend framework or core dependencies.
+
+First inspect the existing frontend stack and preserve compatibility with it.
+
+Use the most modern, production-ready technologies and libraries that are compatible with the current application.
+
+Do not introduce dependencies simply because they are new. Every additional dependency must have a clear purpose and should materially improve the required UX.
+
+If the application is React-based, strongly consider the following technologies where appropriate:
+
+* Three.js
+* React Three Fiber
+* Drei
+* Motion / Framer Motion
+* a lightweight WebGL-compatible particle solution
+* post-processing/bloom effects where useful
+
+Use equivalent modern technologies if the existing framework is not React.
+
+3D Rendering
+
+The Deployment Topology must be a genuine interactive 3D/WebGL visualization, not a collection of CSS shapes pretending to be 3D.
+
+Use hardware-accelerated rendering where practical.
+
+The topology should support:
+
+* smooth camera movement
+* zoom
+* pan/orbit where appropriate
+* depth
+* perspective
+* dynamic node positioning
+* animated connections
+* particle/energy flow
+* subtle lighting
+* glass/crystal materials
+* hover interaction
+* selection
+* animated transitions
+* responsive resizing
+
+The visual result should remain elegant and readable rather than becoming a technical 3D demo.
+
+Crystal / Glass Rendering
+
+Use physically-inspired or visually convincing translucent materials where practical.
+
+The central Kubernetes object and Deployment nodes should have:
+
+* transparent/translucent surfaces
+* subtle refraction-style appearance
+* luminous edges
+* internal gradients
+* controlled bloom
+* subtle lighting
+* depth
+* slight parallax
+
+Avoid excessive transparency that makes text difficult to read.
+
+Do not use heavy post-processing effects that significantly reduce performance.
+
+Energy Flow
+
+The connection between the central Kubernetes object and Deployment nodes should use animated particles or another GPU-efficient technique.
+
+Particles should:
+
+* originate from the central Kubernetes node
+* travel toward the Deployment
+* fade smoothly
+* use staggered timing
+* support multiple simultaneous connections
+* change semantic color based on Deployment state
+* avoid excessive particle counts
+
+Healthy:
+cyan/green.
+
+Updating:
+blue.
+
+Warning:
+amber.
+
+Failed:
+red/pink.
+
+Stopped:
+muted/no active particle flow.
+
+Prefer GPU-friendly rendering for this effect rather than creating hundreds of DOM elements.
+
+UI Motion
+
+Use a dedicated motion system rather than individually inventing animation timings throughout the application.
+
+Define reusable motion tokens for:
+
+* hover
+* selection
+* panel transitions
+* layout changes
+* topology transitions
+* camera movement
+* filtering
+* search
+* operation progress
+* success
+* failure
+
+Motion should be smooth, deliberate and meaningful.
+
+Do not animate every element continuously.
+
+Real-Time Updates
+
+The visual state must be driven by real Kubernetes state.
+
+Where the existing application already provides WebSocket infrastructure, reuse it.
+
+When Kubernetes state changes:
+
+2/2 Ready
+    ↓
+1/2 Ready
+    ↓
+2/2 Ready
+
+the visualization should animate the actual state transition.
+
+Do not fake operational progress based on arbitrary timers.
+
+Topology Layout
+
+The topology must dynamically calculate node positions.
+
+Do not hardcode positions for specific Deployments.
+
+Support at least:
+
+* 1–5 Deployments
+* 6–10 Deployments
+* 11–20 Deployments
+* 20+ Deployments
+
+Use adaptive radial/orbital layouts or an equivalent algorithm.
+
+Avoid node collisions and overlapping labels.
+
+The layout should remain stable when possible so that small state changes do not cause the entire topology to jump.
+
+When filtering/searching, animate nodes into their new positions rather than abruptly recreating the scene.
+
+Performance
+
+Treat performance as a first-class requirement.
+
+Avoid:
+
+* unnecessary React re-renders
+* excessive DOM animation
+* excessive WebGL objects
+* unnecessary post-processing
+* recreating materials/geometries every render
+* uncontrolled particle counts
+
+Reuse geometries and materials where possible.
+
+Use memoization and appropriate state isolation.
+
+If necessary, reduce visual effects dynamically as object count increases.
+
+The UI must remain responsive with approximately 20+ Deployments and many Pods.
+
+WebGL Fallback
+
+Provide a graceful fallback if WebGL is unavailable or disabled.
+
+The application must remain fully usable.
+
+Fallback options may include:
+
+* a high-quality 2D topology representation
+* reduced visual mode
+* the Hex Tile View
+
+Do not show a broken canvas or blank screen.
+
+Accessibility
+
+Respect:
+
+prefers-reduced-motion
+
+When reduced motion is enabled:
+
+* disable/reduce particle movement
+* reduce camera animation
+* remove excessive pulsing
+* reduce transition duration
+* preserve all information and functionality
+
+Do not rely solely on animation or color to communicate state.
+
+Visual QA
+
+After implementation, perform a dedicated visual QA pass.
+
+Check the UI at:
+
+* normal desktop resolution
+* large monitor
+* laptop resolution
+* smaller browser window
+* 5 Deployments
+* 10 Deployments
+* 15 Deployments
+* 20+ Deployments
+* mixed healthy/updating/failed/stopped states
+
+Specifically verify:
+
+* topology readability
+* node spacing
+* particle performance
+* glow intensity
+* text contrast
+* animation smoothness
+* camera behavior
+* hover interaction
+* filtering
+* search
+* responsive behavior
+* WebGL fallback
+* reduced-motion behavior
+
+Do not consider the implementation complete merely because the functional tests pass. Perform a visual refinement pass and remove any interaction, spacing, animation, or rendering issues that make the screen feel like a prototype.
