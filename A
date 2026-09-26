@@ -1,0 +1,371 @@
+Make a focused refinement pass on the Deployment Manager Overview page based on the current implementation. Do NOT redesign the existing UI. Preserve the current layout, Frosted Neon Glass styling, typography, spacing, deployment cards, topology design, list/topology switcher, and existing functionality.
+
+There are 5 specific areas to fix.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. REPLICA DOT / POD STATUS COLORS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Fix the small replica/pod status indicators inside deployment cards.
+
+The indicator color must represent the actual state consistently.
+
+Rules:
+
+HEALTHY / READY
+- Filled green dot
+- Example: Pods 1/1 Ready → green filled dot
+
+UPDATING / ROLLOUT IN PROGRESS
+- Filled orange/amber dot
+- Example: Pods 0/1 Ready while rollout is progressing → orange filled dot
+- Do NOT use only an orange outline.
+- The indicator itself should be completely filled orange/amber.
+
+NOT READY / FAILED / CRASHLOOPING / ERROR
+- Filled red dot
+- If a deployment has a pod that is not ready, failed, crash-looping, unavailable, or otherwise in an unhealthy state, the corresponding indicator must be solid red.
+
+STOPPED
+- Filled muted grey dot
+- Only genuinely stopped / intentionally zero-replica deployments should use the grey state.
+
+Do not use an outlined orange/red indicator for these states.
+
+The dot should have the same visual language as the status badge:
+- Healthy → green
+- Updating → amber/orange
+- Not Ready / Error → red
+- Stopped → grey
+
+Make the state mapping come from the actual deployment/pod status data rather than hardcoded visual conditions.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. KEEP DEPLOYMENT CARD HEIGHT CONSISTENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Currently, when a deployment is updating, the UI adds a separate third/fourth content row for:
+
+"Rollout: In Progress"
+
+This makes the updating card taller than the healthy cards and breaks the visual symmetry of the two-column grid.
+
+Fix this.
+
+Every deployment card must maintain the same fixed/minimum height and the same three-row visual structure regardless of status.
+
+Do NOT create an additional row just because rollout information exists.
+
+For updating deployments, place:
+
+"Rollout: In Progress"
+
+inline in the existing metadata area, preferably toward the right side of the card where there is available horizontal space.
+
+Example concept:
+
+------------------------------------------------------------
+gb-svc-cc-sdi-recon                    [ UPDATING ]
+Pods 0/1 Ready                         Age 33d
+Rollout: In Progress                   Changed 2m ago
+------------------------------------------------------------
+
+Or, if the existing card has a better available placement, integrate it horizontally without increasing card height.
+
+The important requirements are:
+
+- Same card height for healthy/updating/stopped/not-ready deployments
+- No additional row
+- No vertical expansion caused by status text
+- Preserve the symmetrical two-column grid
+- Keep the information readable
+
+Use responsive layout techniques such as flex/grid so the content adapts naturally instead of relying on absolute positioning that could overlap text.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. FIX LIGHT THEME SUMMARY CARDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The summary cards at the top of the Overview page look correct in the dark theme, but their colors/background treatment are visually incorrect in the light theme.
+
+Fix the light-theme styling specifically for the summary cards:
+
+- Total Deployments
+- Total Pods
+- Running Pods
+- Not Ready Pods
+- Updating Pods
+
+The light theme must have its own appropriate background, border, text, icon, and glow/gradient treatment.
+
+Do NOT simply reuse the dark-theme colors with reduced opacity.
+
+The cards should remain clearly distinguishable in light mode while maintaining the same semantic status colors:
+
+- Deployments → cyan/blue
+- Pods → purple/indigo
+- Running → green
+- Not Ready → red
+- Updating → amber/orange
+
+The result should look intentional in both themes.
+
+Check:
+- background contrast
+- text contrast
+- icon visibility
+- border visibility
+- glow intensity
+- number readability
+- label readability
+
+Do not change the dark theme unless necessary to share clean theme variables.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. INTRODUCE A PROPER DISCOVERY LOADING STATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Deployment Manager represents LIVE Kubernetes deployment state.
+
+Whenever the user enters/re-enters the Deployment Manager Overview page and a fresh namespace discovery is required, do not briefly render an empty/partial page while discovery is happening.
+
+Instead, show a dedicated loading state.
+
+Use a blue circular spinner / rotating arrow indicator.
+
+The spinner should remain visible for the entire discovery operation.
+
+Conceptually:
+
+            ↻
+      Discovering deployments...
+       Loading current state
+
+The spinner must:
+
+- Be blue/cyan and consistent with the existing UI
+- Rotate smoothly
+- Remain visible until discovery has actually completed
+- Prevent the UI from briefly showing stale/empty/partially populated content
+- Work in both dark and light themes
+- Be visually centered within the deployment content area
+
+IMPORTANT:
+
+Do not fake the loading duration.
+
+The spinner must be tied to the actual discovery/loading state.
+
+Once discovery completes:
+1. Finish the spinner state.
+2. Render the current deployment data.
+3. Then allow the existing card/topology entrance animation to run smoothly.
+
+Do not show the final cards/topology before discovery has completed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. ALWAYS REFRESH LIVE DEPLOYMENT DATA WHEN ENTERING THE OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Deployment Manager is a live operational module.
+
+Whenever the user lands on the Deployment Manager Overview page, trigger the appropriate fresh namespace discovery.
+
+This should happen when:
+
+A. User opens Deployment Manager from another module.
+
+B. User switches the selected application/namespace using the application switcher.
+
+C. User leaves Overview and returns from Audit.
+
+D. User leaves Overview and returns from RBAC.
+
+E. User navigates to another module/sub-module and returns to Deployment Manager.
+
+F. User switches back to Deployment Manager after being away from it.
+
+The intent is:
+
+ENTER OVERVIEW
+        ↓
+Start fresh discovery
+        ↓
+Show blue discovery spinner
+        ↓
+Discovery completes
+        ↓
+Render latest deployment state
+        ↓
+Play normal entrance animation
+
+Do not unnecessarily refetch multiple times because of React re-renders.
+
+There should be exactly one intentional discovery operation per relevant Overview entry/context change.
+
+Avoid race conditions when:
+- application changes quickly
+- user switches tabs quickly
+- component mounts/unmounts
+- multiple effects execute during development mode
+- previous discovery is still in progress
+
+Cancel/ignore stale discovery results where appropriate so an older request cannot overwrite the newly selected namespace/application.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. TOPOLOGY ↔ LIST VIEW TRANSITION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+There is currently a noticeable lag/glitch when switching between List View and Topology View.
+
+The tab switch animation and topology loading are currently too tightly coupled.
+
+Separate the UI transition from the topology data-loading lifecycle.
+
+When the user switches to Topology:
+
+1. Immediately acknowledge the tab/view selection.
+2. Show the topology-specific loading spinner/state.
+3. Load/prepare the topology data.
+4. Keep the loading spinner visible until topology rendering/data preparation is complete.
+5. Once topology is ready, smoothly transition/fade the topology into view.
+
+Do NOT freeze the entire page while topology loads.
+
+Do NOT make the tab switch wait synchronously for topology rendering before visually responding to the click.
+
+Similarly, when switching back to List View:
+
+1. Switch the selected view immediately.
+2. Render the existing/latest deployment data.
+3. Use the appropriate loading state only if fresh discovery is actually required.
+4. Avoid visible layout jumps.
+
+The user should perceive:
+
+CLICK TOPOLOGY
+      ↓
+Tab changes immediately
+      ↓
+Blue spinner / loading state
+      ↓
+Topology becomes ready
+      ↓
+Smooth fade/entrance animation
+
+Not:
+
+CLICK
+ ↓
+UI freezes
+ ↓
+wait
+ ↓
+animation glitches
+ ↓
+topology suddenly appears
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. ANIMATION RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The loading spinner and content entrance animation must be separate concepts.
+
+Loading state:
+- Blue rotating arrow/circle
+- Continuous rotation
+- Represents active discovery/loading
+
+Content entrance:
+- Existing card/topology animation
+- Starts only after data is ready
+- Smooth and short
+- No flashing
+- No layout jump
+
+Do not animate an empty placeholder into the final content while discovery is still running.
+
+Do not artificially delay the UI just to make the animation look longer.
+
+The actual async lifecycle should control the state.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. PRESERVE EXISTING FUNCTIONALITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Do not modify:
+- Backend/API contracts unless required
+- Kubernetes discovery logic unless required to expose loading state correctly
+- RBAC
+- Audit functionality
+- Deployment actions
+- Topology interactions
+- List filtering
+- Application/namespace selection
+- Existing navigation
+- Existing card data semantics
+- Existing Frosted Neon Glass visual language
+
+This is a refinement/fix pass, not a redesign.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. ACCEPTANCE CRITERIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Verify all of the following:
+
+1. Healthy deployment:
+   Pods 1/1 Ready
+   → solid green indicator.
+
+2. Updating deployment:
+   Pods 0/1 Ready + rollout in progress
+   → solid orange indicator.
+   → no extra card row.
+   → same card height as healthy deployments.
+
+3. Not-ready/crash-looping deployment:
+   → solid red indicator.
+
+4. Stopped deployment:
+   → muted grey filled indicator.
+
+5. All cards in the two-column grid:
+   → identical height.
+   → no card expansion based on status text.
+
+6. Light theme:
+   → summary cards have intentional, readable light-theme styling.
+
+7. Enter Deployment Manager:
+   → discovery starts.
+   → blue spinner appears immediately.
+   → no blank/partial/glitching deployment content.
+   → spinner remains until discovery completes.
+   → final content enters smoothly.
+
+8. Change application/namespace:
+   → fresh discovery.
+   → spinner.
+   → latest namespace data rendered.
+
+9. Leave Overview and return:
+   → fresh discovery.
+   → spinner.
+   → latest data rendered.
+
+10. Switch List → Topology:
+    → tab responds immediately.
+    → no frozen UI.
+    → topology loading spinner shown while topology prepares.
+    → topology appears smoothly when ready.
+
+11. Switch Topology → List:
+    → no visible lag or layout jump.
+
+12. Rapidly switch application/view:
+    → no stale namespace data replacing current data.
+    → no race-condition glitches.
+    → no duplicate uncontrolled discovery requests.
+
+After implementation, inspect the final UI in BOTH dark and light themes and verify the state transitions rather than only checking the static appearance.
