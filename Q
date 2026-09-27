@@ -1,0 +1,188 @@
+Completely remove the existing Deployment Manager topology implementation and rebuild the topology from scratch.
+
+IMPORTANT: Treat the existing topology as obsolete. Do not reuse, extend, refactor, imitate, or preserve any of the existing topology layout, components, styling, positioning logic, animations, graph logic, or visual model. Do not refer to the previous topology implementation or any previous topology design decisions.
+
+Everything outside the topology is already implemented and must remain unchanged.
+
+Build a completely new, standalone 2D topology component.
+
+TOPOLOGY DESIGN:
+
+Create a clean network-topology-style diagram using cards.
+
+The selected namespace/environment is the central element.
+
+CENTRAL NAMESPACE CARD:
+- Place the namespace/environment card exactly in the center of the topology area.
+- This must be the largest card in the entire topology.
+- It represents the selected Kubernetes namespace/environment.
+- Use a dark futuristic card with a strong neon border and subtle static glow.
+- Display:
+  - Namespace/environment name
+  - Total deployments
+  - Total pods
+  - Kubernetes icon
+- The central card should have enough visual weight to clearly establish it as the root/center of the topology.
+
+DEPLOYMENT CARDS:
+- Every deployment in the selected namespace must be represented by its own card.
+- Dynamically generate these cards from the existing real deployment data.
+- Do not hardcode deployment names or sample data.
+- The cards should surround the central namespace card.
+- Distribute them naturally around the center based on the number of deployments.
+- The cards should use the available topology space efficiently and should visually fill the majority of the topology panel.
+- Do not make the cards tiny.
+- Do not leave large unused areas of empty space.
+- Maintain clear spacing between cards.
+- Never overlap cards.
+
+Each deployment card should display:
+- Deployment name
+- Ready pods / desired pods
+- Deployment status
+- Small pod/status indicators
+- A simple deployment/Kubernetes-style icon
+
+CARD DESIGN:
+- Dark background
+- Rounded corners
+- Neon colored border
+- Subtle static glow
+- Clear readable typography
+- Different neon accent colors can be used between deployments
+- Status colors must remain meaningful:
+  - Green = healthy/ready
+  - Amber/orange = rollout/in progress
+  - Red = unhealthy/not ready
+  - Grey = stopped
+
+CONNECTIONS:
+
+Connect every deployment card to the central namespace card.
+
+Use simple SVG/CSS curved sine-wave-style connection lines.
+
+The lines should:
+- Start from the deployment card
+- Curve naturally toward the central namespace card
+- Look like smooth sine-wave/organic curves rather than straight lines
+- Use the deployment's accent color
+- Have a subtle static neon glow
+- Remain behind the cards
+- Never cross through card content
+- Never obscure text
+
+The exact curves do not need to represent real Kubernetes network traffic. They are purely visual relationships showing that each deployment belongs to the selected namespace.
+
+Do not use a graph physics engine.
+
+Do not make nodes move.
+
+Do not continuously recalculate positions.
+
+The topology should remain visually stable after rendering.
+
+STATIC 2D ONLY:
+
+This is strictly a 2D UI.
+
+Do not use:
+- Three.js
+- WebGL
+- 3D objects
+- 3D camera
+- Orbit controls
+- Zoom controls
+- Perspective rendering
+- Rotation
+- Particles
+- Energy-flow effects
+- Animated connection lines
+- Pulsing effects
+- Continuous glow animation
+- Moving nodes
+- Physics simulation
+
+Use normal HTML/CSS/SVG or another lightweight 2D implementation.
+
+The only animation allowed is a subtle hover transition on an individual deployment card.
+
+On hover:
+- Slightly increase the card glow
+- Slightly brighten the border
+- Optionally show a small information tooltip/popover
+
+Nothing else should animate.
+
+RESPONSIVE LAYOUT:
+
+The layout must dynamically adapt to the number of deployments.
+
+Examples:
+
+4 deployments:
+
+              [ DEPLOYMENT ]
+
+      [ DEPLOYMENT ]     [ DEPLOYMENT ]
+
+                   [ NAMESPACE ]
+
+              [ DEPLOYMENT ]
+
+
+6 deployments:
+
+          [ DEPLOYMENT ]   [ DEPLOYMENT ]
+
+      [ DEPLOYMENT ]       [ DEPLOYMENT ]
+
+                 [ NAMESPACE ]
+
+          [ DEPLOYMENT ]   [ DEPLOYMENT ]
+
+For larger numbers of deployments, dynamically create additional surrounding positions/rings while maintaining the same visual hierarchy.
+
+The namespace card must always remain the largest and central element.
+
+The deployment cards should occupy the available topology area rather than clustering tightly around the namespace.
+
+IMPORTANT IMPLEMENTATION RULE:
+
+Do not inspect the existing topology component and try to modify it.
+
+Delete/remove the existing topology layer and create a new topology component from scratch with its own clean structure and styling.
+
+You may use the application's existing deployment data/API/state only to populate the new topology.
+
+Do not change any backend logic or deployment discovery logic.
+
+Do not change:
+- Namespace selection
+- Deployment discovery
+- RBAC
+- Deployment actions
+- Start/stop/restart/scale
+- Deployment details
+- Activity view
+- Refresh behavior
+- Existing APIs
+- Existing status calculation
+- Existing pod calculation
+- Any other Deployment Manager functionality
+
+Only the topology visualization is being replaced.
+
+FINAL REQUIREMENT:
+
+The result should be a clean 2D network topology made entirely from large neon cards:
+
+CENTRAL LARGE NAMESPACE CARD
+        ↓
+SURROUNDING DEPLOYMENT CARDS
+        ↓
+SMOOTH CURVED CONNECTION LINES
+
+The topology should feel like a polished futuristic infrastructure/network diagram, with the cards being the primary visual elements and the connecting curves providing the relationship between them.
+
+Build this independently from the old topology implementation.
