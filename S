@@ -1,5 +1,0 @@
-Replace the current deployment icon with a flat isometric cube icon. The cube must be drawn in an axonometric/isometric orientation, matching the visual orientation of a typical isometric cube: three visible faces (top, left, and right), vertical edges remaining vertical, with the horizontal edges angled diagonally. The cube should be rendered as a 2D SVG/CSS icon with neon outlines and no actual 3D/WebGL implementation.
-
-And I’d add:
-
-Do not rotate the entire card or deployment node. Only the cube icon itself should have this isometric orientation.
