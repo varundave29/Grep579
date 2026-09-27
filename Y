@@ -1,0 +1,225 @@
+Revamp ONLY the Deployment Manager Topology UI. Everything else in Deployment Manager is already built and must remain unchanged.
+
+IMPORTANT:
+This is a STATIC 2D topology visualization. Do NOT build a 3D scene, WebGL scene, canvas-based 3D visualization, Three.js scene, camera, orbit controls, zoom controls, rotating objects, particles, energy flow, animated connections, pulsing glow, or any live animation.
+
+Remove/disable any existing 3D topology implementation and its unnecessary animation logic/dependencies if they are only used by the topology.
+
+TARGET DESIGN:
+
+Create a clean futuristic neon Kubernetes deployment topology similar to a modern infrastructure architecture diagram.
+
+The topology should have:
+
+1. CENTRAL ENVIRONMENT NODE
+- Place the selected environment/namespace in the exact visual center.
+- Use a large flat 2D hexagonal/octagonal-style container with layered borders.
+- Dark background inside the node.
+- Static neon blue/cyan border and subtle static glow.
+- Show:
+  - Environment name
+  - Deployment count
+  - Pod count
+- Include a simple flat Kubernetes icon in the center node.
+- This is purely 2D. It should visually feel dimensional through borders, shadows and gradients, but must NOT be an actual 3D object.
+
+Example:
+    DEV
+    15 deployments
+    42 pods
+
+2. DEPLOYMENT NODES
+- Arrange every actual deployment around the central environment node in a balanced radial layout.
+- Do NOT hardcode the sample deployment names from any reference.
+- Use the application's existing real deployment data dynamically.
+- Automatically position deployments based on the number of deployments.
+- Keep the layout clean and readable with no overlapping cards.
+- Maintain stable positions while the page is open. Do not continuously re-layout or animate nodes.
+
+Each deployment should be a horizontal rounded rectangular card.
+
+Each card should contain:
+- Deployment icon on the left
+- Deployment name
+- Ready pod count / desired pod count
+- Small pod status indicators
+- Clear status indication
+
+Example:
+
+┌──────────────────────────────────┐
+│  ◈   deployment-name             │
+│      2 / 2 pods                  │
+│      ● ●                          │
+└──────────────────────────────────┘
+
+3. NEON COLOR SYSTEM
+Use the same visual language as a futuristic neon infrastructure dashboard.
+
+Use different static accent colors to visually distinguish deployment states/types where appropriate:
+- Cyan / electric blue
+- Purple / magenta
+- Green
+- Yellow / amber
+- Red
+- Neutral grey/blue for stopped or inactive deployments
+
+The important point is that the topology should NOT be entirely cyan/green like the current implementation.
+
+Each deployment card should have:
+- Matching neon border
+- Matching icon background
+- Matching connection line
+- Very subtle static glow
+
+Do NOT animate these glows.
+
+Status meaning must remain semantically correct:
+- Green = healthy/ready
+- Red = unhealthy/not ready
+- Amber/orange = rollout/in progress
+- Grey = genuinely stopped
+
+Do not change the existing backend status logic. Only improve its visual representation.
+
+4. CONNECTION LINES
+Connect every deployment card to the central environment node.
+
+Use clean curved 2D SVG-style connection lines.
+
+The lines should:
+- Be static
+- Have the same neon accent color as their deployment
+- Have a subtle static glow
+- Clearly originate from the deployment and terminate at the central environment node
+- Never have moving particles
+- Never have flowing energy
+- Never pulse
+- Never animate
+
+Avoid complicated graph-network behavior. This should look like a clean architecture diagram.
+
+5. BACKGROUND
+Use the existing dark Deployment Manager theme.
+
+Add a subtle static technical/grid background if it already fits the application's theme.
+
+Do NOT add:
+- Animated grids
+- Moving particles
+- Star fields
+- Camera movement
+- Parallax
+- 3D perspective
+- Animated background effects
+
+The result should feel premium and futuristic but still be a simple UI.
+
+6. HOVER INTERACTION
+The ONLY animation allowed is a very small hover interaction on an individual deployment card.
+
+On hover:
+- Slightly brighten the card border/glow
+- Slightly raise/highlight the card
+- Show a small popover/tooltip containing useful deployment information already available in the application
+
+Keep the hover transition extremely subtle and short.
+
+No continuous animation anywhere.
+
+7. DATA INTEGRATION
+This topology must represent the REAL Deployment Manager data.
+
+Do not create mock deployments.
+
+For every deployment in the selected environment:
+- Render one deployment node
+- Display its real name
+- Display its real desired/ready pod count
+- Display its real status
+- Use the existing deployment discovery/state data
+- React correctly when the selected environment/namespace changes
+- React correctly after refresh or deployment operations
+
+If there are 4 deployments, show 4 nodes.
+If there are 15 deployments, show 15 nodes.
+If there are more deployments than comfortably fit around the center, use a clean responsive multi-ring/grid arrangement while preserving the same visual design.
+
+8. RESPONSIVE LAYOUT
+The topology must remain readable at different screen sizes.
+
+Do not allow:
+- Cards to overlap
+- Labels to overlap
+- Connection lines to cross through cards
+- The central node to collide with deployment cards
+
+Use CSS/SVG/normal frontend layout techniques rather than a 3D rendering engine.
+
+9. REMOVE THE OLD IMPLEMENTATION
+Inspect the existing topology code first.
+
+Remove obsolete:
+- 3D rendering
+- Three.js/WebGL logic
+- Orbit controls
+- Zoom controls
+- Rotation
+- Camera controls
+- Particle systems
+- Energy-flow animations
+- Pulsing animations
+- Continuous glow animations
+- Unnecessary topology animation state
+
+Do not remove anything outside the topology that is used by the rest of Deployment Manager.
+
+10. PRESERVE ALL EXISTING FUNCTIONALITY
+Do NOT change:
+- Deployment discovery
+- Namespace/environment selection
+- RBAC
+- Deployment actions
+- Start/stop/restart/scale functionality
+- Deployment details
+- Activity view
+- Refresh behavior
+- Backend APIs
+- Existing deployment state logic
+- Existing navigation
+
+This task is strictly a VISUAL TOPOLOGY REVAMP.
+
+FINAL VISUAL GOAL:
+
+The result should look like a polished futuristic 2D Kubernetes architecture diagram:
+
+                    ┌───────────────┐
+                    │  Deployment   │
+                    │  2 / 2 pods   │
+                    └───────┬───────┘
+                            │
+        ┌──────────────┐    │    ┌──────────────┐
+        │ Deployment B │────┼────│ Deployment C │
+        │  1 / 1 pods  │    │    │  3 / 3 pods  │
+        └──────────────┘    │    └──────────────┘
+                            │
+                     ╔══════════════╗
+                     ║              ║
+                     ║   K8s CORE   ║
+                     ║     DEV      ║
+                     ║ 15 deploy.   ║
+                     ║   42 pods    ║
+                     ║              ║
+                     ╚══════════════╝
+                            │
+                  ┌─────────┴─────────┐
+                  │                   │
+           ┌──────────────┐    ┌──────────────┐
+           │ Deployment D │    │ Deployment E │
+           │  0 / 1 pods  │    │  2 / 2 pods  │
+           └──────────────┘    └──────────────┘
+
+The actual implementation should be more polished than this ASCII representation, using the neon futuristic visual language described above.
+
+Most importantly: make it STATIC, SIMPLE, 2D, neon, clean and readable. Do not over-engineer it into another 3D/animated visualization.
